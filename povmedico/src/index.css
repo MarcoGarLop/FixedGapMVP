@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Clay 3D Healthcare Palette ── */
+  --color-clay-bg: #F5F1EC;
+  --color-clay-surface: rgba(255, 255, 255, 0.85);
+  --color-clay-surface-solid: #FFFFFF;
+  --color-clay-surface-elevated: #FBF8F5;
+  --color-clay-surface-hover: #F0EBE5;
+  --color-clay-border: #E6DDD4;
+  --color-clay-border-active: #D4C8BC;
+
+  /* ── Accent (clinical teal) ── */
+  --color-accent: #2BA89C;
+  --color-accent-soft: rgba(43, 168, 156, 0.12);
+
+  /* ── Domain colors (matte, clay-like) ── */
+  --color-dom-proximal: #D4695C;
+  --color-dom-distal: #2BA89C;
+  --color-dom-pronosup: #5B8EC4;
+
+  /* ── Semantic (soft, not neon) ── */
+  --color-ok: #4CAF82;
+  --color-warning: #D4943A;
+  --color-alert: #C4524A;
+
+  /* ── Text (warm dark tones, WCAG AA+) ── */
+  --color-txt: #2A2218;
+  --color-txt-secondary: #5C5043;
+  --color-txt-muted: #8C7F73;
+
+  /* ── Clay radii (chunky, rounded) ── */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  /* ── Clay shadows (double: inner highlight + outer soft) ── */
+  --shadow-clay: 0 4px 14px rgba(44, 36, 32, 0.06), 0 1.5px 4px rgba(44, 36, 32, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --shadow-clay-hover: 0 8px 24px rgba(44, 36, 32, 0.09), 0 2px 6px rgba(44, 36, 32, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --shadow-clay-elevated: 0 12px 40px rgba(44, 36, 32, 0.1), 0 3px 10px rgba(44, 36, 32, 0.06), inset 0 1.5px 0 rgba(255, 255, 255, 0.85);
+  --shadow-clay-inset: inset 0 2px 6px rgba(44, 36, 32, 0.06), inset 0 0 0 1px rgba(44, 36, 32, 0.03);
+
+  /* ── Fonts (Nunito headings, DM Sans body) ── */
+  --font-display: 'Nunito', sans-serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+
+/* ── Base ── */
+body {
+  margin: 0;
+  background-color: var(--color-clay-bg);
+  color: var(--color-txt);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+}
+
+/* ── Utility ── */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ── Scrollbar (subtle, rounded) ── */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-clay-border-active);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-txt-muted);
+}
+
+/* ── Keyframes ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes softBounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out both;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2.2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--color-clay-surface-solid) 25%, var(--color-clay-surface-elevated) 50%, var(--color-clay-surface-solid) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 24px;
+}
+
+.animate-countUp {
+  animation: countUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Stagger children */
+.stagger-children > * {
+  animation: fadeInUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 480ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 540ms; }
+
+/* ── Selection ── */
+::selection {
+  background: rgba(43, 168, 156, 0.18);
+  color: #2A2218;
+}
+
+/* ── Print ── */
+@media print {
+  body { background: white !important; }
+  .print\:hidden { display: none !important; }
+}

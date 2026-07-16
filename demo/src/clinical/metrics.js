@@ -2,9 +2,42 @@ const VIDEO_W = 960;
 const VIDEO_H = 540;
 const POS_BUFFER_SIZE = 60;
 const TREMOR_BUFFER_SIZE = 30;
+// Average palm width (L5-L17) ~85mm. At typical webcam distance (~50cm) the
+// palm spans ~80px on a 960px-wide frame. 80/80 = 1mm/px baseline scale.
+// Actual scale is recalculated each frame relative to observed palmScale.
 const PX_TO_MM_BASE = 80;
+const MIN_CONFIDENCE = 0.55;
 
-// Per-hand state
+// 1-Euro Filter: adaptive low-pass that smooths noise at rest while preserving
+// fast intentional movement. Minimizes derivative lag for speed computation.
+class OneEuroFilter {
+  constructor(freq = 30, minCutoff = 1.0, beta = 0.007, dCutoff = 1.0) {
+    this.freq = freq;
+    this.minCutoff = minCutoff;
+    this.beta = beta;
+    this.dCutoff = dCutoff;
+    this.xPrev = null;
+    this.dxPrev = 0;
+  }
+  _alpha(cutoff) {
+    const te = 1.0 / this.freq;
+    const tau = 1.0 / (2 * Math.PI * cutoff);
+    return 1.0 / (1.0 + tau / te);
+  }
+  filter(x) {
+    if (this.xPrev === null) { this.xPrev = x; return x; }
+    const dx = (x - this.xPrev) * this.freq;
+    const adx = this._alpha(this.dCutoff);
+    this.dxPrev = adx * dx + (1 - adx) * this.dxPrev;
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dxPrev);
+    const ax = this._alpha(cutoff);
+    const xFilt = ax * x + (1 - ax) * this.xPrev;
+    this.xPrev = xFilt;
+    return xFilt;
+  }
+  reset() { this.xPrev = null; this.dxPrev = 0; }
+}
+
 const handState = [createHandState(), createHandState()];
 
 function createHandState() {
@@ -13,7 +46,14 @@ function createHandState() {
     maxSpanObserved: 1,
     prevTremorAmp: 0.1,
     speedHistory: [],
-    sparcBuffer: [],
+    prevFingerTips: null,
+    prevAvgDistTips: null,
+    prevDistTime: null,
+    maxRomObserved: 1,
+    filterX: new OneEuroFilter(30, 1.0, 0.007),
+    filterY: new OneEuroFilter(30, 1.0, 0.007),
+    lowConfidenceFrames: 0,
+    totalFrames: 0,
   };
 }
 
@@ -29,21 +69,97 @@ export function resetMetrics() {
   }
 }
 
-function computeSPARC(speedHistory) {
+// A3: Real SPARC (Spectral Arc Length) — Balasubramanian et al. 2012.
+// Exported for per-repetition SPARC computation (C5).
+export function computeSPARCFromProfile(speedProfile, sampleRate = 30) {
+  return computeSPARC(speedProfile, sampleRate);
+}
+// Computes arc length of the normalized magnitude spectrum of the speed profile.
+// More negative = less smooth (fragmented movement).
+function computeSPARC(speedHistory, sampleRate = 30) {
   if (speedHistory.length < 10) return 0;
   const N = speedHistory.length;
-  let totalArc = 0;
-  for (let i = 1; i < N; i++) {
-    const dx = 1;
-    const dy = speedHistory[i] - speedHistory[i - 1];
-    totalArc += Math.sqrt(dx * dx + dy * dy);
+
+  // Normalize speed profile to [0, 1]
+  const peak = Math.max(...speedHistory);
+  if (peak < 1) return 0;
+  const normalized = speedHistory.map(v => v / peak);
+
+  // Zero-pad to next power of 2 for FFT efficiency
+  let fftSize = 1;
+  while (fftSize < N) fftSize <<= 1;
+  const re = new Array(fftSize).fill(0);
+  const im = new Array(fftSize).fill(0);
+  for (let i = 0; i < N; i++) re[i] = normalized[i];
+
+  // In-place Cooley-Tukey FFT
+  fftInPlace(re, im, fftSize);
+
+  // Compute magnitude spectrum (only positive frequencies up to cutoff)
+  // Adaptive cutoff: frequency where power drops below threshold
+  const freqResolution = sampleRate / fftSize;
+  const maxFreqIdx = Math.min(Math.floor(fftSize / 2), Math.ceil(10 / freqResolution));
+
+  const mag = [];
+  for (let i = 0; i <= maxFreqIdx; i++) {
+    mag.push(Math.sqrt(re[i] * re[i] + im[i] * im[i]) / N);
   }
-  return Math.max(-5, -totalArc / N);
+
+  // Normalize magnitude spectrum
+  const magPeak = Math.max(...mag);
+  if (magPeak < 1e-7) return 0;
+  const magNorm = mag.map(v => v / magPeak);
+
+  // Arc length of normalized magnitude spectrum
+  let arcLength = 0;
+  for (let i = 1; i < magNorm.length; i++) {
+    const df = freqResolution / sampleRate; // normalized frequency step
+    const dv = magNorm[i] - magNorm[i - 1];
+    arcLength += Math.sqrt(df * df + dv * dv);
+  }
+
+  return Math.max(-5, -arcLength);
 }
 
-export function computeHandMetrics(landmarks, handIdx) {
+// Radix-2 Cooley-Tukey in-place FFT
+function fftInPlace(re, im, N) {
+  // Bit-reversal permutation
+  for (let i = 1, j = 0; i < N; i++) {
+    let bit = N >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  // FFT butterfly
+  for (let len = 2; len <= N; len <<= 1) {
+    const half = len >> 1;
+    const angle = -2 * Math.PI / len;
+    const wRe = Math.cos(angle);
+    const wIm = Math.sin(angle);
+    for (let i = 0; i < N; i += len) {
+      let curRe = 1, curIm = 0;
+      for (let j = 0; j < half; j++) {
+        const tRe = curRe * re[i + j + half] - curIm * im[i + j + half];
+        const tIm = curRe * im[i + j + half] + curIm * re[i + j + half];
+        re[i + j + half] = re[i + j] - tRe;
+        im[i + j + half] = im[i + j] - tIm;
+        re[i + j] += tRe;
+        im[i + j] += tIm;
+        const newCurRe = curRe * wRe - curIm * wIm;
+        curIm = curRe * wIm + curIm * wRe;
+        curRe = newCurRe;
+      }
+    }
+  }
+}
+
+export function computeHandMetrics(landmarks, handIdx, confidence = 1.0) {
   const now = Date.now();
   const st = handState[handIdx];
+  st.totalFrames++;
 
   const m = {
     pinchActive: false,
@@ -51,20 +167,30 @@ export function computeHandMetrics(landmarks, handIdx) {
     tripodQuality: 0,
     thumbOpposition: 0,
     handOpenPct: 0,
-    handOpenSpeed: 0,
+    handOpeningSpeed: 0,
     fingers: 0,
     indexExtension: 0,
     palmSpeed: 0,
     smoothness: 1.0,
     sparc: 0,
     romDeg: 0,
+    romNorm: 0,
     tremorAmp: st.prevTremorAmp,
-    wristStability: 1.0,
+    tremorFreqHz: 0,
+    tremorBand: 'none',
+    intentionTremor: 0,
     fingerIndividuation: 0,
-    graspVariability: 0,
+    qualityOk: true,
   };
 
   if (!landmarks || landmarks.length < 21) return m;
+
+  // Quality gate: skip unreliable frames
+  if (confidence < MIN_CONFIDENCE) {
+    st.lowConfidenceFrames++;
+    m.qualityOk = false;
+    return m;
+  }
 
   const lm = landmarks;
   const hSize = gDist(lm[0], lm[9]);
@@ -85,15 +211,30 @@ export function computeHandMetrics(landmarks, handIdx) {
   const avgTripodDist = (d48 + d412 + d812) / 3;
   m.tripodQuality = Math.max(0, Math.min(100, 100 - Math.abs(tripodAngle - 60) * 1.5));
 
-  // Thumb opposition: distance L4-L20 normalized
-  const thumbPinkyDist = gDist(lm[4], lm[20]);
-  m.thumbOpposition = Math.round(Math.min(100, (1 - thumbPinkyDist / (hSize * 1.5)) * 100));
+  // Thumb opposition: 3D distance L4-L20 (includes Z for depth of crossing)
+  const thumbPinkyDist3D = Math.sqrt(
+    Math.pow((lm[4].x - lm[20].x) * VIDEO_W, 2) +
+    Math.pow((lm[4].y - lm[20].y) * VIDEO_H, 2) +
+    Math.pow(((lm[4].z || 0) - (lm[20].z || 0)) * VIDEO_W, 2)
+  );
+  m.thumbOpposition = Math.round(Math.min(100, (1 - thumbPinkyDist3D / (hSize * 1.5)) * 100));
 
-  // M2: Hand openness (speed of finger spread)
+  // M2: Hand openness (position) + opening speed (derivative)
   const tips = [4, 8, 12, 16, 20];
   const avgDistTips = tips.reduce((s, idx) => s + gDist(lm[idx], lm[9]), 0) / tips.length;
   st.maxSpanObserved = Math.max(st.maxSpanObserved, avgDistTips);
   m.handOpenPct = Math.round((avgDistTips / st.maxSpanObserved) * 100);
+
+  // M2 speed: rate of finger spread (mm/s), only positive = opening phase
+  if (st.prevAvgDistTips !== null && st.prevDistTime !== null) {
+    const dt = (now - st.prevDistTime) / 1000;
+    if (dt > 0) {
+      const delta = (avgDistTips - st.prevAvgDistTips) * pxToMm;
+      m.handOpeningSpeed = Math.max(0, Math.round(delta / dt));
+    }
+  }
+  st.prevAvgDistTips = avgDistTips;
+  st.prevDistTime = now;
 
   // Fingers extended count
   let extended = 0;
@@ -114,8 +255,10 @@ export function computeHandMetrics(landmarks, handIdx) {
     (Math.acos(Math.min(1, Math.max(-1, dotI / (m1i * m2i + 0.001)))) * 180) / Math.PI
   );
 
-  // Palm position buffer for speed/smoothness/tremor
-  st.posBuffer.push({ x: lm[0].x, y: lm[0].y, t: now });
+  // Palm position buffer for speed/smoothness/tremor (1-Euro filtered)
+  const filtX = st.filterX.filter(lm[0].x);
+  const filtY = st.filterY.filter(lm[0].y);
+  st.posBuffer.push({ x: filtX, y: filtY, t: now });
   if (st.posBuffer.length > POS_BUFFER_SIZE) st.posBuffer.shift();
 
   if (st.posBuffer.length > 2) {
@@ -124,10 +267,7 @@ export function computeHandMetrics(landmarks, handIdx) {
     const dt = (p1.t - p2.t) / 1000;
     m.palmSpeed = Math.round((gDist(p1, p2) * pxToMm) / (dt + 0.001));
 
-    // Hand open speed (rate of change of openness)
-    m.handOpenSpeed = m.palmSpeed;
-
-    // Smoothness (direction inversions)
+    // Direction consistency (auxiliary metric, not primary smoothness indicator)
     let inversions = 0;
     for (let i = 2; i < st.posBuffer.length; i++) {
       const v1 = st.posBuffer[i - 1].y - st.posBuffer[i - 2].y;
@@ -135,35 +275,29 @@ export function computeHandMetrics(landmarks, handIdx) {
       if (v1 * v2 < 0) inversions++;
     }
     m.smoothness = Math.max(0, 1 - inversions / TREMOR_BUFFER_SIZE);
-
-    // Wrist stability: std dev of wrist position
-    if (st.posBuffer.length >= 10) {
-      const recent = st.posBuffer.slice(-10);
-      const meanX = recent.reduce((a, b) => a + b.x, 0) / recent.length;
-      const meanY = recent.reduce((a, b) => a + b.y, 0) / recent.length;
-      const std = Math.sqrt(
-        recent.reduce((a, b) => a + (b.x - meanX) ** 2 + (b.y - meanY) ** 2, 0) / recent.length
-      );
-      m.wristStability = Math.max(0, Math.min(1, 1 - std * 50));
-    }
   }
 
-  // SPARC (Spectral Arc Length approximation)
+  // Smoothness arc length (discrete approximation of SPARC over 2s window)
   st.speedHistory.push(m.palmSpeed);
   if (st.speedHistory.length > 60) st.speedHistory.shift();
   m.sparc = computeSPARC(st.speedHistory);
 
-  // M4: ROM (wrist angle)
-  const v1 = { x: lm[0].x - lm[9].x, y: lm[0].y - lm[9].y };
-  const v2 = { x: lm[5].x - lm[0].x, y: lm[5].y - lm[0].y };
-  const dot = v1.x * v2.x + v1.y * v2.y;
-  const mag1 = Math.sqrt(v1.x ** 2 + v1.y ** 2);
-  const mag2 = Math.sqrt(v2.x ** 2 + v2.y ** 2);
-  m.romDeg = Math.round(
-    (Math.acos(Math.min(1, Math.max(-1, dot / (mag1 * mag2 + 0.001)))) * 180) / Math.PI
+  // M4 ROM: angle between wrist→thumb_tip (L0→L4) and wrist→pinky_tip (L0→L20).
+  // Measures maximal hand opening span as angular ROM.
+  // Normalized by patient's own session maximum (romNorm).
+  const vThumb = { x: lm[4].x - lm[0].x, y: lm[4].y - lm[0].y };
+  const vPinky = { x: lm[20].x - lm[0].x, y: lm[20].y - lm[0].y };
+  const dotRom = vThumb.x * vPinky.x + vThumb.y * vPinky.y;
+  const magThumb = Math.sqrt(vThumb.x ** 2 + vThumb.y ** 2);
+  const magPinky = Math.sqrt(vPinky.x ** 2 + vPinky.y ** 2);
+  const romRaw = Math.round(
+    (Math.acos(Math.min(1, Math.max(-1, dotRom / (magThumb * magPinky + 0.001)))) * 180) / Math.PI
   );
+  m.romDeg = romRaw;
+  st.maxRomObserved = Math.max(st.maxRomObserved, romRaw);
+  m.romNorm = Math.round((romRaw / st.maxRomObserved) * 100);
 
-  // Tremor (high-freq variance during stillness)
+  // Resting tremor (high-freq variance during stillness, palmSpeed < 20)
   if (m.palmSpeed < 20 && st.posBuffer.length >= TREMOR_BUFFER_SIZE) {
     const recentPos = st.posBuffer.slice(-TREMOR_BUFFER_SIZE);
     const meanX = recentPos.reduce((a, b) => a + b.x, 0) / TREMOR_BUFFER_SIZE;
@@ -171,21 +305,55 @@ export function computeHandMetrics(landmarks, handIdx) {
       recentPos.reduce((a, b) => a + Math.pow(b.x - meanX, 2), 0) / TREMOR_BUFFER_SIZE
     );
     m.tremorAmp = Math.min(1, stdX * 100);
+
+    // C4: Tremor frequency estimation via zero-crossing rate of detrended X
+    const detrended = recentPos.map(p => p.x - meanX);
+    let zeroCrossings = 0;
+    for (let i = 1; i < detrended.length; i++) {
+      if (detrended[i] * detrended[i - 1] < 0) zeroCrossings++;
+    }
+    // Each full cycle has 2 zero crossings. freq = crossings / (2 * duration)
+    const durationSec = (recentPos[recentPos.length - 1].t - recentPos[0].t) / 1000;
+    if (durationSec > 0.3) {
+      const freqHz = zeroCrossings / (2 * durationSec);
+      m.tremorFreqHz = Math.round(freqHz * 10) / 10;
+      // Clinical band flag: cerebellar 3-5Hz, parkinsonian 4-6Hz
+      m.tremorBand = freqHz >= 3 && freqHz <= 6 ? 'pathological' : 'physiological';
+    }
   }
   st.prevTremorAmp = m.tremorAmp;
 
-  // Finger individuation (correlation of finger tip speeds)
-  const fingerTips = [8, 12, 16, 20];
-  let individuation = 0;
-  if (st.posBuffer.length > 3) {
-    const speeds = fingerTips.map(tip => {
-      return gDist(lm[tip], { x: lm[tip].x + 0.001, y: lm[tip].y });
-    });
-    const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
-    const variance = speeds.reduce((a, b) => a + (b - mean) ** 2, 0) / speeds.length;
-    individuation = Math.min(100, variance * 1000);
+  // Intention tremor (high-freq oscillation DURING directed movement)
+  // Detected by measuring direction reversals in the recent position buffer
+  // while the hand is actively moving (palmSpeed >= 20).
+  if (m.palmSpeed >= 20 && st.posBuffer.length >= 10) {
+    const recent = st.posBuffer.slice(-10);
+    let reversals = 0;
+    for (let i = 2; i < recent.length; i++) {
+      const dx1 = recent[i - 1].x - recent[i - 2].x;
+      const dx2 = recent[i].x - recent[i - 1].x;
+      const dy1 = recent[i - 1].y - recent[i - 2].y;
+      const dy2 = recent[i].y - recent[i - 1].y;
+      if (dx1 * dx2 < 0) reversals++;
+      if (dy1 * dy2 < 0) reversals++;
+    }
+    m.intentionTremor = Math.min(1, reversals / 16);
   }
-  m.fingerIndividuation = Math.round(individuation);
+
+  // Finger individuation: variance of inter-frame finger tip speeds.
+  // High variance = fingers moving independently (good individuation).
+  const fingerTips = [8, 12, 16, 20];
+  if (st.prevFingerTips) {
+    const speeds = fingerTips.map(tip => {
+      const dx = (lm[tip].x - st.prevFingerTips[tip].x) * VIDEO_W;
+      const dy = (lm[tip].y - st.prevFingerTips[tip].y) * VIDEO_H;
+      return Math.sqrt(dx * dx + dy * dy);
+    });
+    const meanSpd = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+    const variance = speeds.reduce((a, b) => a + (b - meanSpd) ** 2, 0) / speeds.length;
+    m.fingerIndividuation = Math.round(Math.min(100, variance * 50));
+  }
+  st.prevFingerTips = Object.fromEntries(fingerTips.map(tip => [tip, { x: lm[tip].x, y: lm[tip].y }]));
 
   return m;
 }

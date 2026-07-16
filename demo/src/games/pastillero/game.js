@@ -81,6 +81,8 @@ export function startPastilleroGame(container) {
   // --- Biomarker capture (live, from the same landmarks) ---
   const biomarkers = new BiomarkerAccumulator('pastillero');
   let gameRecorded = false;
+  // B1: First stimulus = game start (pills are visible)
+  setTimeout(() => biomarkers.markStimulus(), 500);
 
   handTracker.onResults((landmarks, meta) => {
     latestLandmarks = landmarks;
@@ -132,6 +134,8 @@ export function startPastilleroGame(container) {
       if (pill) {
         heldPillId = pill.id;
         pills3D.setHeld(pill.id, true);
+        // B5: Record grip aperture at grasp onset
+        biomarkers.recordGripAperture(biomarkers._lastPinchMm);
       }
     }
 
@@ -155,9 +159,18 @@ export function startPastilleroGame(container) {
             pills3D.animateTo(heldPillId, slotPos, 350);
             if (result.dayComplete) pillbox.setDayComplete(compIdx, true);
             pillbox.updateGhosts(state.compartments);
+            // B3: Record endpoint for BVE (drop position vs intended target)
+            biomarkers.recordEndpoint(
+              { x: dropPos.x, z: dropPos.z },
+              { x: slotPos.x, z: slotPos.z }
+            );
+            biomarkers.markRepetition({ success: true });
+            biomarkers.markStimulus();
           } else {
             const pill2 = state.trayPills.find(p => p.id === heldPillId);
             if (pill2 && pill2.worldPos) pills3D.animateBounce(heldPillId, pill2.worldPos, 500);
+            biomarkers.markRepetition({ success: false });
+            biomarkers.markStimulus();
           }
         } else {
           const pill2 = state.trayPills.find(p => p.id === heldPillId);
@@ -258,7 +271,7 @@ export function startPastilleroGame(container) {
         errors: state.errors,
         totalPills: state.totalPills,
       });
-      recordGame(biomarkers.finalize());
+      recordGame(biomarkers.finalize(), biomarkers);
     }
     handTracker.stop();
     if (animId) cancelAnimationFrame(animId);

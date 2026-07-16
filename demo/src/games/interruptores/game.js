@@ -63,6 +63,8 @@ export function startInterruptoresGame(container) {
   // --- Biomarker capture (live) ---
   const biomarkers = new BiomarkerAccumulator('interruptores');
   let gameRecorded = false;
+  let _prevWristL = null;
+  let _prevWristR = null;
 
   let latestLeftHand = null;
   let latestRightHand = null;
@@ -118,7 +120,29 @@ export function startInterruptoresGame(container) {
 
     // Feed biomarkers with whichever hand is currently active.
     const activeHand = latestRightHand || latestLeftHand;
-    biomarkers.update(activeHand ? [activeHand] : []);
+    biomarkers.update(activeHand ? [activeHand] : [], {});
+
+    // C2: Bilateral asymmetry from wrist displacement between frames.
+    if (latestLeftHand && latestRightHand) {
+      if (_prevWristL && _prevWristR) {
+        const dL = Math.sqrt(
+          Math.pow((latestLeftHand[0].x - _prevWristL.x) * 960, 2) +
+          Math.pow((latestLeftHand[0].y - _prevWristL.y) * 540, 2)
+        );
+        const dR = Math.sqrt(
+          Math.pow((latestRightHand[0].x - _prevWristR.x) * 960, 2) +
+          Math.pow((latestRightHand[0].y - _prevWristR.y) * 540, 2)
+        );
+        const maxD = Math.max(dL, dR);
+        if (maxD > 1) {
+          const ratio = Math.min(dL, dR) / (maxD + 0.001);
+          const asymIdx = Math.round((1 - ratio) * 100);
+          biomarkers._asymmetryReadings.push(asymIdx);
+        }
+      }
+      _prevWristL = { x: latestLeftHand[0].x, y: latestLeftHand[0].y };
+      _prevWristR = { x: latestRightHand[0].x, y: latestRightHand[0].y };
+    }
   });
 
   handTracker.onRawResults((results) => {
@@ -153,24 +177,26 @@ export function startInterruptoresGame(container) {
   function resetRound() {
     state.left.state = 'idle';
     state.right.state = 'idle';
-    
+
     // Randomize next target
     state.target = Math.random() > 0.5 ? 'left' : 'right';
-    
+
     if (state.target === 'left') {
       document.getElementById('hud-target').textContent = 'Ilumina el bonsái (Izd)';
       document.getElementById('hud-target').style.color = '#ecc94b';
-      ambient.intensity = 0.4; // Darken global light slightly
+      ambient.intensity = 0.4;
       key.intensity = 0.6;
     } else {
       document.getElementById('hud-target').textContent = 'Apaga la vela (Der)';
       document.getElementById('hud-target').style.color = '#ed8936';
-      // Reset candle and fan
       state.candleLit = true;
       candle.flame.scale.set(1, 1, 1);
-      ambient.intensity = 0.6; // Normal light
+      ambient.intensity = 0.6;
       key.intensity = 0.8;
     }
+
+    // B1: Mark stimulus onset for reaction time measurement
+    biomarkers.markStimulus();
   }
 
   // Initial setup
@@ -312,6 +338,7 @@ export function startInterruptoresGame(container) {
     }
 
     state.score++;
+    biomarkers.markRepetition({ target, score: state.score });
     document.getElementById('hud-target').textContent = '¡Muy bien!';
     document.getElementById('hud-target').style.color = '#48bb78';
 
@@ -367,7 +394,7 @@ export function startInterruptoresGame(container) {
     if (!gameRecorded) {
       gameRecorded = true;
       biomarkers.setOutcome({ score: state.score, maxScore: state.maxScore });
-      recordGame(biomarkers.finalize());
+      recordGame(biomarkers.finalize(), biomarkers);
     }
     handTracker.stop();
     if (animId) cancelAnimationFrame(animId);

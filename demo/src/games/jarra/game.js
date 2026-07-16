@@ -90,6 +90,8 @@ export function startJarraGame(container) {
   let startTime = Date.now();
   let visualPitcherVolume = 0;
   let visualGlassVolume = 0;
+  let prevRound = 1;
+  let prevPhase = 'ready';
 
   function smoothVolumes(state, dt) {
     const lerpSpeed = 8.0;
@@ -311,7 +313,20 @@ export function startJarraGame(container) {
     updateHUD(state);
     updatePhaseIndicator(state);
 
+    // B1: Mark stimulus when pouring phase begins (pitcher full, player must act)
+    if (state.phase === 'pouring' && prevPhase !== 'pouring') {
+      biomarkers.markStimulus();
+    }
+    prevPhase = state.phase;
+
+    // Mark repetition when a new round begins (round counter advances)
+    if (state.round > prevRound) {
+      biomarkers.markRepetition({ round: prevRound, spills: state.spillCount });
+      prevRound = state.round;
+    }
+
     if (state.phase === 'success' && !modalShown) {
+      biomarkers.markRepetition({ round: state.round, spills: state.spillCount });
       modalShown = true;
       showModal();
     }
@@ -330,7 +345,7 @@ export function startJarraGame(container) {
         rounds: st.totalRounds,
         avgPourMs: (Date.now() - startTime) / Math.max(1, st.totalRounds),
       });
-      recordGame(biomarkers.finalize());
+      recordGame(biomarkers.finalize(), biomarkers);
     }
     handTracker.stop();
     if (animId) cancelAnimationFrame(animId);

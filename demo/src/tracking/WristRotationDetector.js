@@ -33,35 +33,39 @@ export class WristRotationDetector {
     const indexMcp = lms[INDEX_MCP];
     const pinkyMcp = lms[PINKY_MCP];
 
-    // Screen coordinates: x right, y down
+    // Use X and Z (depth) for more robust rotation estimation.
+    // Z from MediaPipe is depth relative to wrist — when the hand rotates
+    // (pronation/supination), the Z difference between index and pinky MCP
+    // changes significantly, giving a better signal than pure 2D.
     const dx = pinkyMcp.x - indexMcp.x;
     const dy = pinkyMcp.y - indexMcp.y;
+    const dz = (pinkyMcp.z || 0) - (indexMcp.z || 0);
 
-    // Confidence based on distance between the two knuckles
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    this.confidence = Math.min(1, dist / 0.08);
+    // Confidence based on 2D distance between the two knuckles
+    const dist2D = Math.sqrt(dx * dx + dy * dy);
+    this.confidence = Math.min(1, dist2D / 0.08);
 
     if (this.confidence < 0.3) return;
 
-    // Raw angle: atan2 gives the tilt of the knuckle line
-    const angleRaw = Math.atan2(dy, dx);
+    // Combine 2D angle with depth for a more accurate rotation estimate.
+    // When Z data is available and meaningful, blend it with the 2D angle.
+    const angleRaw2D = Math.atan2(dy, dx);
+    const hasDepth = Math.abs(dz) > 0.001;
+    const angleFromDepth = hasDepth ? Math.atan2(dz, dist2D) : 0;
 
-    // Map to pitcher rotation:
-    // User requested inverted logic: thumb going down (left/right depending on hand)
-    // should rotate the pitcher in the opposite direction.
+    // Blend: primarily 2D angle, augmented by depth signal
+    const angleRaw = angleRaw2D + angleFromDepth * 0.3;
+
     let rot = angleRaw - Math.PI / 2;
 
-    // Normalize to [-PI, PI]
     while (rot > Math.PI) rot -= 2 * Math.PI;
     while (rot < -Math.PI) rot += 2 * Math.PI;
 
     this.rawAngle = rot;
 
-    // Apply deadzone: within ±DEADZONE of upright, lock to 0
     if (Math.abs(rot) < DEADZONE) {
       this.pitcherRotation = 0;
     } else {
-      // Subtract deadzone offset so rotation starts from 0 at edge of deadzone
       const sign = rot > 0 ? 1 : -1;
       this.pitcherRotation = sign * (Math.abs(rot) - DEADZONE);
     }

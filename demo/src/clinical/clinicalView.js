@@ -39,9 +39,11 @@ function renderDashboard(mL, mR, asym) {
   const m = (mL && mR) ? (mL.palmSpeed >= mR.palmSpeed ? mL : mR) : (mL || mR);
   if (!m) return;
 
+  // CRI: weighted composite (SPARC normalized to 0-100 where 0=worst -5, 100=best 0)
+  const sparcNorm = Math.max(0, Math.min(100, (m.sparc + 5) * 20));
   const cri = Math.round(
-    m.handOpenPct * 0.2 + (m.fingers / 5) * 100 * 0.15 + (m.romDeg / 180) * 100 * 0.15 +
-    m.smoothness * 100 * 0.15 + m.tripodQuality * 0.1 + m.wristStability * 100 * 0.1 +
+    m.handOpenPct * 0.20 + (m.fingers / 5) * 100 * 0.15 + (m.romDeg / 180) * 100 * 0.15 +
+    sparcNorm * 0.20 + m.tripodQuality * 0.15 +
     (m.indexExtension / 180) * 100 * 0.15
   );
   const criColor = cri < 35 ? C.bad : cri < 70 ? C.warn : C.ok;
@@ -61,17 +63,22 @@ function renderDashboard(mL, mR, asym) {
   setCard('cv-r6', 'IDX', 'INDEX EXT.', thresh(m.indexExtension, 140, 90), Math.round(m.indexExtension), '°');
   setCard('cv-r7', 'M9', 'INDIVID.', thresh(m.fingerIndividuation, 50, 20), m.fingerIndividuation, '%');
   setCard('cv-r8', 'SPD', 'PALM SPEED', thresh(m.palmSpeed, 50, 10), Math.round(m.palmSpeed), 'mm/s');
-  setCard('cv-r9', 'M11', 'SPARC', thresh(m.sparc, -1.5, -3), m.sparc.toFixed(2), '');
-  setCard('cv-r10', 'SMT', 'SMOOTHNESS', thresh(m.smoothness, 0.7, 0.4), (m.smoothness * 100).toFixed(0), '%');
+  setCard('cv-r9', 'M11', 'SPARC', thresh(m.sparc, -1.5, -3), m.sparc.toFixed(2), 'SAL');
+  setCard('cv-r10', 'M2s', 'OPEN SPEED', thresh(m.handOpeningSpeed, 80, 30), Math.round(m.handOpeningSpeed), 'mm/s');
 
   // Bottom row (b1-b3)
-  setCard('cv-b1', 'M4', 'WRIST ROM', thresh(m.romDeg, 120, 70), Math.round(m.romDeg), '°');
-  setCard('cv-b2', 'WST', 'WRIST STAB.', thresh(m.wristStability, 0.7, 0.4), (m.wristStability * 100).toFixed(0), '%');
+  setCard('cv-b1', 'M4', 'HAND ROM', thresh(m.romDeg, 120, 70), Math.round(m.romDeg), '°');
+  setCard('cv-b2', 'QTY', 'SIGNAL', m.qualityOk ? 'ok' : 'bad', m.qualityOk ? 'OK' : 'LOW', '');
 
   if (mL && mR && asym) {
     setCard('cv-b3', 'ASY', 'ASYMMETRY', thresh(100 - asym.asymmetryIndex, 70, 40), asym.asymmetryIndex, '%');
   } else {
-    setCard('cv-b3', 'TRM', 'TREMOR', m.tremorAmp < 0.3 ? 'ok' : m.tremorAmp < 0.6 ? 'warn' : 'bad', (m.tremorAmp * 100).toFixed(0), '%');
+    // C4: Show tremor with frequency band flag
+    const combinedTremor = Math.max(m.tremorAmp, m.intentionTremor);
+    const tremorStatus = combinedTremor < 0.3 ? 'ok' : combinedTremor < 0.6 ? 'warn' : 'bad';
+    const freqLabel = m.tremorFreqHz > 0 ? ` ${m.tremorFreqHz}Hz` : '';
+    const bandTag = m.tremorBand === 'pathological' ? ' ⚠' : '';
+    setCard('cv-b3', 'TRM', 'TREMOR', tremorStatus, (combinedTremor * 100).toFixed(0) + bandTag, '%' + freqLabel);
   }
 }
 

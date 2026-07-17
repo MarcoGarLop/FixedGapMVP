@@ -8,4 +8,8 @@ export default defineConfig({
   server: {
     port: 4000,
   },
+  build: {
+    outDir: '../demo/public/dashboard',
+    emptyOutDir: true,
+  }
 })

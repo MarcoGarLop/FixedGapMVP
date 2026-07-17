@@ -30,16 +30,16 @@ export function generateMockData(): MockData {
   const strokeTypes: StrokeType[] = ['ischemic', 'hemorrhagic'];
 
   const trajectories: Trajectory[] = [];
-  for (let i = 0; i < 10; i++) trajectories.push('improving');
-  for (let i = 0; i < 6; i++) trajectories.push('plateau');
-  for (let i = 0; i < 5; i++) trajectories.push('regressing');
-  for (let i = 0; i < 3; i++) trajectories.push('irregular');
+  for (let i = 0; i < 5; i++) trajectories.push('improving');
+  for (let i = 0; i < 3; i++) trajectories.push('plateau');
+  for (let i = 0; i < 3; i++) trajectories.push('regressing');
+  for (let i = 0; i < 1; i++) trajectories.push('irregular');
 
   const shuffledTrajectories = rng.shuffle(trajectories);
   const patients: Patient[] = [];
   const allSessions: Session[] = [];
 
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 12; i++) {
     const patientId = `pat-${String(i + 1).padStart(3, '0')}`;
     const mobility = mobilityLevels[i % 3];
     const side = sides[i % 2];

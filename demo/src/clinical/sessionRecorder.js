@@ -21,6 +21,7 @@ const GAME_ORDER = { slingshot: 0, flappy: 1, water: 2 };
 let currentGames = [];
 let currentAccumulators = [];
 let activeSubjectId = null;
+let playthroughStartTime = null;
 
 export function setActiveSubject(subjectId) {
   activeSubjectId = subjectId;
@@ -33,6 +34,7 @@ export function getActiveSubject() {
 export function startPlaythrough() {
   currentGames = [];
   currentAccumulators = [];
+  playthroughStartTime = new Date().toISOString();
 }
 
 export function recordGame(finalizedGame, accumulator = null) {
@@ -140,7 +142,7 @@ export async function commitPlaythrough(handUsed = 'right') {
     }));
     
     try {
-      uploadResult = await uploadPlaythrough(activeSubjectId, gamesForUpload);
+      uploadResult = await uploadPlaythrough(activeSubjectId, gamesForUpload, playthroughStartTime);
       if (uploadResult.ok) {
         console.log('[sessionRecorder] Uploaded to Supabase:', uploadResult.sessionId);
       } else {

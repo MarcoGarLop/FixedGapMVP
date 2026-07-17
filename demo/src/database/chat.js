@@ -139,3 +139,37 @@ export async function getOperatorsList() {
   }
   return data;
 }
+
+/**
+ * Hides a conversation for the current user.
+ */
+export async function hideConversation(conversationId) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('conversation_participants')
+    .update({ hidden: true })
+    .eq('conversation_id', conversationId)
+    .eq('operator_id', user.id);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
+ * Unhides a conversation for the current user.
+ */
+export async function unhideConversation(conversationId) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('conversation_participants')
+    .update({ hidden: false })
+    .eq('conversation_id', conversationId)
+    .eq('operator_id', user.id);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

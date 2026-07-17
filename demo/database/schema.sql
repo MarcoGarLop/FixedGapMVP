@@ -302,7 +302,11 @@ CREATE POLICY game_results_insert ON game_results
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
@@ -314,7 +318,11 @@ CREATE TRIGGER subjects_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE OR REPLACE FUNCTION update_session_completion()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   UPDATE sessions SET
     games_played = (SELECT COUNT(*) FROM game_results WHERE session_id = NEW.session_id),
@@ -413,6 +421,7 @@ CREATE TABLE conversation_participants (
   conversation_id uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   operator_id     uuid NOT NULL REFERENCES operators(id) ON DELETE CASCADE,
   joined_at       timestamptz NOT NULL DEFAULT now(),
+  hidden          boolean NOT NULL DEFAULT false,
   PRIMARY KEY (conversation_id, operator_id)
 );
 
@@ -451,19 +460,40 @@ CREATE POLICY participants_select ON conversation_participants
 CREATE POLICY participants_insert ON conversation_participants
   FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+CREATE POLICY participants_update ON conversation_participants
+  FOR UPDATE USING (operator_id = auth.uid());
+
 CREATE POLICY messages_select ON messages
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id = conversation_id AND cp.operator_id = auth.uid())
+    EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id = messages.conversation_id AND cp.operator_id = auth.uid())
   );
 CREATE POLICY messages_insert ON messages
   FOR INSERT WITH CHECK (
     sender_id = auth.uid() AND 
-    EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id = conversation_id AND cp.operator_id = auth.uid())
+    EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id = messages.conversation_id AND cp.operator_id = auth.uid())
   );
 
 CREATE TRIGGER conversations_updated_at
   BEFORE UPDATE ON conversations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE OR REPLACE FUNCTION unhide_conversation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE conversation_participants 
+  SET hidden = false 
+  WHERE conversation_id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER unhide_on_new_message
+  AFTER INSERT ON messages
+  FOR EACH ROW EXECUTE FUNCTION unhide_conversation();
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- IMPLEMENTATION NOTES

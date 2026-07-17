@@ -27,6 +27,25 @@ const GAME_KEY_MAP = {
   water: 'jarra',
 };
 
+function computeRepFatigue(reps) {
+  if (!reps || reps.length < 6) return null;
+  const n = Math.min(3, Math.floor(reps.length / 2));
+  const firstPeaks = reps.slice(0, n).map(r => r.peakVelocity);
+  const lastPeaks = reps.slice(-n).map(r => r.peakVelocity);
+  const firstMean = mean(firstPeaks);
+  const lastMean = mean(lastPeaks);
+  if (!firstMean || firstMean <= 0) return null;
+  const change = Math.round(((lastMean - firstMean) / firstMean) * 100);
+  return Math.max(-100, Math.min(100, change));
+}
+
+function filterReactionTimes(rtStats) {
+  if (!rtStats || !rtStats.count) return null;
+  if (rtStats.mean < 120 || rtStats.mean > 3000) return null;
+  if (rtStats.median < 120 || rtStats.median > 3000) return null;
+  return rtStats;
+}
+
 export function transformGameResult(finalized, sessionId, playOrder, accumulator) {
   const gameKey = GAME_KEY_MAP[finalized.game] || finalized.game;
   const stats = finalized.repetitionStats;
@@ -40,14 +59,30 @@ export function transformGameResult(finalized, sessionId, playOrder, accumulator
   const speed = accumulator?.speed || [];
   const romDeg = accumulator?.romDeg || [];
 
-  // Compute values not directly in finalize output but available from accumulator
+  // Per-frame accumulated metrics
+  const fingersExtended = accumulator?.fingersExtended || [];
+  const fingerIndividuations = accumulator?.fingerIndividuations || [];
+  const romNorms = accumulator?.romNorms || [];
+  const tremorFreqs = accumulator?.tremorFreqs || [];
+  const intentionTremors = accumulator?.intentionTremors || [];
+  const pinchDistances = accumulator?.pinchDistances || [];
+
+  // Compute values from accumulator
   const speedValues = speed.map(s => s.v);
   const pinchCount = accumulator?.pinchRises || 0;
 
-  // Fingers extended: we don't have per-frame count in accumulator,
-  // so we use the metrics_display value where available
-  const fingersMax = null; // Would need per-frame tracking, skip for now
-  const fingersMean = null;
+  // Fatigue from repetitions (clinically valid: compare first 3 vs last 3 rep peaks)
+  const fatigueFromReps = computeRepFatigue(reps);
+
+  // Reaction times: filter physiologically impossible values
+  const validRTs = filterReactionTimes(stats?.reactionTime);
+
+  // SPARC per-rep is valid for pastillero and interruptores (1-8s movements).
+  // Jarra rounds (12-14s) are too long for SPARC to discriminate.
+  const sparcValid = gameKey !== 'jarra';
+  const sparcMean = sparcValid ? (stats?.sparc?.mean ?? null) : null;
+  const sparcCv = sparcValid ? (stats?.sparc?.cv ?? null) : null;
+  const sparcWorst = sparcValid ? (stats?.sparc?.worst ?? null) : null;
 
   return {
     session_id: sessionId,
@@ -57,76 +92,82 @@ export function transformGameResult(finalized, sessionId, playOrder, accumulator
 
     // A. Pinch & Grasp
     pinch_count: safeNum(pinchCount),
-    pinch_distance_mean_mm: null, // Would need per-pinch distance tracking
-    pinch_distance_max_mm: null,
-    tripod_quality_mean: null, // Would need per-frame accumulation
-    thumb_opposition_mean: null,
-    grip_aperture_mean_mm: stats?.gripApertureCV?.mean || null,
-    grip_aperture_cv: stats?.gripApertureCV?.value || null,
+    pinch_distance_mean_mm: safeNum(mean(pinchDistances)),
+    pinch_distance_max_mm: pinchDistances.length ? safeNum(Math.max(...pinchDistances)) : null,
+    tripod_quality_mean: null, // No current game evaluates tripod grasp
+    thumb_opposition_mean: null, // No current game evaluates thumb-pinky opposition
+    grip_aperture_mean_mm: stats?.gripApertureCV?.mean ?? null,
+    grip_aperture_cv: stats?.gripApertureCV?.value ?? null,
 
     // B. Hand Opening & Extension
     hand_open_pct_p90: safeNum(percentile(handOpen, 90)),
     hand_open_pct_p10: safeNum(percentile(handOpen, 10)),
     hand_opening_speed_p75: safeNum(percentile(handOpeningSpeed, 75)),
-    fingers_extended_max: fingersMax,
-    fingers_extended_mean: fingersMean,
+    fingers_extended_max: fingersExtended.length ? Math.max(...fingersExtended) : null,
+    fingers_extended_mean: safeNum(mean(fingersExtended)),
     index_extension_p75: safeNum(percentile(indexExt, 75)),
-    finger_individuation_mean: null, // Would need per-frame accumulation
+    finger_individuation_mean: safeNum(mean(fingerIndividuations)),
 
     // C. Range of Motion
     rom_deg_p90: safeNum(percentile(romDeg, 90)),
-    rom_norm_mean: null, // Would need romNorm per-frame
-    max_supination_deg: finalized.metrics?.maxSupination || null,
-    max_pronation_deg: finalized.metrics?.maxPronation || null,
+    rom_norm_mean: safeNum(mean(romNorms)),
+    max_supination_deg: finalized.metrics?.maxSupination ?? null,
+    max_pronation_deg: finalized.metrics?.maxPronation ?? null,
 
     // D. Velocity & Kinematics
     palm_speed_mean: safeNum(mean(speedValues)),
     palm_speed_p75: safeNum(percentile(speedValues, 75)),
-    mean_peak_velocity: stats?.meanPeakVelocity || null,
-    peak_velocity_ratio_mean: stats?.peakVelocityRatio?.mean || null,
+    mean_peak_velocity: stats?.meanPeakVelocity ?? null,
+    peak_velocity_ratio_mean: stats?.peakVelocityRatio?.mean ?? null,
 
-    // E. Smoothness
-    session_sparc: finalized.sessionSparc || null,
-    sparc_mean: stats?.sparc?.mean || null,
-    sparc_cv: stats?.sparc?.cv || null,
-    sparc_worst: stats?.sparc?.worst || null,
+    // E. Smoothness (session_sparc disabled: SPARC over full game always saturates to -5)
+    session_sparc: null,
+    sparc_mean: sparcMean,
+    sparc_cv: sparcCv,
+    sparc_worst: sparcWorst,
 
     // F. Tremor
     tremor_amp_mean: safeNum(mean(tremor)),
-    tremor_freq_hz: null, // Aggregated from per-frame — would need accumulation
-    tremor_band: 'none',
-    intention_tremor_mean: null, // Would need per-frame accumulation
+    tremor_freq_hz: tremorFreqs.length ? safeNum(mean(tremorFreqs)) : null,
+    tremor_band: tremorFreqs.length
+      ? (mean(tremorFreqs) >= 3 && mean(tremorFreqs) <= 6 ? 'pathological' : 'physiological')
+      : 'none',
+    intention_tremor_mean: intentionTremors.length ? safeNum(mean(intentionTremors)) : null,
 
     // G. Inter-repetition Variability
     rep_count: reps.length || null,
-    duration_cv: stats?.durationCV || null,
-    peak_velocity_cv: stats?.peakVelocityCV || null,
-    mean_velocity_cv: stats?.meanVelocityCV || null,
-    mean_duration_ms: stats?.meanDuration || null,
+    duration_cv: stats?.durationCV ?? null,
+    peak_velocity_cv: stats?.peakVelocityCV ?? null,
+    mean_velocity_cv: stats?.meanVelocityCV ?? null,
+    mean_duration_ms: stats?.meanDuration ?? null,
 
     // H. Spatial Precision
-    bve_value: stats?.bve?.value || null,
-    endpoint_accuracy: stats?.bve?.endpointAccuracy || null,
-    endpoint_max_error: stats?.bve?.maxError || null,
+    bve_value: stats?.bve?.value ?? null,
+    endpoint_accuracy: stats?.bve?.endpointAccuracy ?? null,
+    endpoint_max_error: stats?.bve?.maxError ?? null,
 
-    // I. Reaction Time
-    reaction_time_mean_ms: stats?.reactionTime?.mean || null,
-    reaction_time_median_ms: stats?.reactionTime?.median || null,
-    reaction_time_cv: stats?.reactionTime?.cv || null,
-    reaction_time_count: stats?.reactionTime?.count || null,
+    // I. Reaction Time (filtered: 120ms < valid < 3000ms)
+    reaction_time_mean_ms: validRTs?.mean ?? null,
+    reaction_time_median_ms: validRTs?.median ?? null,
+    reaction_time_cv: validRTs?.cv ?? null,
+    reaction_time_count: validRTs?.count ?? null,
 
-    // J. Fatigue & Asymmetry
-    fatigue_index: finalized.metrics?.fatigueIndex || null,
-    asymmetry_mean: finalized.asymmetry?.mean || null,
-    asymmetry_readings: finalized.asymmetry?.readings || null,
+    // J. Fatigue (rep-based, not raw speed profile)
+    fatigue_index: fatigueFromReps,
+    asymmetry_mean: null, // Games are unilateral; any reading is accidental detection
+    asymmetry_readings: null,
 
     // K. Composite
-    cri_score: null, // Computed at display time, not stored from game
+    cri_score: null,
     cri_level: null,
 
     // L. Signal Quality
-    quality_frames_pct: null, // Will be set by the session recorder
-    avg_fps: null,
+    quality_frames_pct: accumulator?._totalFramesAttempted > 0
+      ? Math.round((accumulator.frames / accumulator._totalFramesAttempted) * 100 * 10) / 10
+      : null,
+    avg_fps: (finalized.durationMs > 0 && accumulator?.frames > 0)
+      ? Math.round((accumulator.frames / (finalized.durationMs / 1000)) * 10) / 10
+      : null,
 
     // M. Raw Data
     repetitions: reps,

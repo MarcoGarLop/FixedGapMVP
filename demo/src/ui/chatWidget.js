@@ -6,7 +6,9 @@ import {
   sendMessage, 
   createConversation, 
   getOperatorsList,
-  subscribeToMessages 
+  subscribeToMessages,
+  hideConversation,
+  unhideConversation
 } from '../database/chat.js';
 
 let currentUser = null;
@@ -34,9 +36,14 @@ export async function initChatWidget(container) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <h3 id="chat-title" class="chat-title">Mensajes</h3>
-          <button id="chat-close-btn" class="icon-button" aria-label="Cerrar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </button>
+          <div class="chat-header-actions">
+            <button id="chat-delete-btn" class="icon-button hidden" aria-label="Eliminar chat" style="margin-right: 5px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
+            <button id="chat-close-btn" class="icon-button" aria-label="Cerrar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
         </div>
 
         <!-- Body -->
@@ -93,6 +100,7 @@ export async function initChatWidget(container) {
   const drawer = document.getElementById('chat-drawer');
   const closeBtn = document.getElementById('chat-close-btn');
   const backBtn = document.getElementById('chat-back-btn');
+  const deleteBtn = document.getElementById('chat-delete-btn');
   const title = document.getElementById('chat-title');
   const viewList = document.getElementById('view-list');
   const viewChat = document.getElementById('view-chat');
@@ -117,6 +125,17 @@ export async function initChatWidget(container) {
       refreshConversations();
     } else if (currentView === VIEW_NEW) {
       switchView(VIEW_LIST);
+    }
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    if (currentView === VIEW_CHAT && activeConversationId) {
+      if (confirm('¿Seguro que quieres ocultar este chat de tu bandeja?')) {
+        await hideConversation(activeConversationId);
+        activeConversationId = null;
+        switchView(VIEW_LIST);
+        refreshConversations();
+      }
     }
   });
 
@@ -183,13 +202,16 @@ export async function initChatWidget(container) {
     if (view === VIEW_LIST) {
       viewList.classList.add('active');
       backBtn.classList.add('hidden');
+      deleteBtn.classList.add('hidden');
     } else if (view === VIEW_CHAT) {
       viewChat.classList.add('active');
       backBtn.classList.remove('hidden');
+      deleteBtn.classList.remove('hidden');
       setTimeout(() => chatInput.focus(), 100);
     } else if (view === VIEW_NEW) {
       viewNew.classList.add('active');
       backBtn.classList.remove('hidden');
+      deleteBtn.classList.add('hidden');
     }
   }
 
@@ -197,12 +219,18 @@ export async function initChatWidget(container) {
     convContainer.innerHTML = '<div class="chat-loader">Cargando...</div>';
     currentConversations = await loadConversations();
     
-    if (currentConversations.length === 0) {
+    // Filter out hidden conversations
+    const visibleConversations = currentConversations.filter(conv => {
+      const me = conv.conversation_participants.find(p => p.operator_id === currentUser.id);
+      return me && !me.hidden;
+    });
+
+    if (visibleConversations.length === 0) {
       convContainer.innerHTML = '<div class="empty-msg">No tienes conversaciones aún.</div>';
       return;
     }
 
-    convContainer.innerHTML = currentConversations.map(conv => {
+    convContainer.innerHTML = visibleConversations.map(conv => {
       // Find the "other" participant's name for direct chats
       let chatName = conv.name;
       if (conv.type === 'direct') {
@@ -232,6 +260,11 @@ export async function initChatWidget(container) {
     );
 
     if (existing) {
+      // If it was hidden, unhide it first
+      const me = existing.conversation_participants.find(p => p.operator_id === currentUser.id);
+      if (me && me.hidden) {
+        await unhideConversation(existing.id);
+      }
       openChat(existing.id, otherOpName);
     } else {
       // Create new

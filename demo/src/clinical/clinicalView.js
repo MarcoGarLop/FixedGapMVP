@@ -13,7 +13,7 @@ const VIDEO_W = 960;
 const VIDEO_H = 540;
 
 const C = {
-  ok: '#3F8F5C', warn: '#C9822F', bad: '#B0432E', accent: '#5A8A6B',
+  ok: '#10B981', warn: '#F59E0B', bad: '#EF4444', accent: '#00D4FF',
 };
 
 function statusColor(s) { return s === 'ok' ? C.ok : s === 'warn' ? C.warn : s === 'bad' ? C.bad : C.accent; }

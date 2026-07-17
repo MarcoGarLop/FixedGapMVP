@@ -43,6 +43,7 @@ export class BiomarkerAccumulator {
     this.start = Date.now();
 
     this.frames = 0;
+    this._totalFramesAttempted = 0;
     this.handOpen = [];
     this.handOpeningSpeed = [];
     this.indexExt = [];
@@ -56,6 +57,16 @@ export class BiomarkerAccumulator {
     this.pronDeg = [];
     this.rotSmooth = [];
     this.prevRot = null;
+
+    // Per-frame metrics for DB columns (accumulated here, aggregated in metricsTransform)
+    this.tripodQualities = [];
+    this.thumbOppositions = [];
+    this.fingersExtended = [];
+    this.fingerIndividuations = [];
+    this.romNorms = [];
+    this.tremorFreqs = [];
+    this.intentionTremors = [];
+    this.pinchDistances = [];
 
     // activity counter (interruptores)
     this.pinchRises = 0;
@@ -91,6 +102,7 @@ export class BiomarkerAccumulator {
     try {
       const lms = landmarks && landmarks[0];
       if (lms) {
+        this._totalFramesAttempted++;
         const confidence = extra.confidence ?? 1.0;
         const m = computeHandMetrics(lms, 0, confidence);
 
@@ -106,6 +118,11 @@ export class BiomarkerAccumulator {
           this.smooth.shift();
           this.speed.shift();
           this.romDeg.shift();
+          this.tripodQualities.shift();
+          this.thumbOppositions.shift();
+          this.fingersExtended.shift();
+          this.fingerIndividuations.shift();
+          this.romNorms.shift();
         }
         this.handOpen.push(m.handOpenPct);
         this.handOpeningSpeed.push(m.handOpeningSpeed);
@@ -114,14 +131,25 @@ export class BiomarkerAccumulator {
         this.smooth.push(m.smoothness);
         this.speed.push({ t: Date.now() - this.start, v: m.palmSpeed });
         this.romDeg.push(m.romDeg);
-        if (m.pinchActive && !this.prevPinch) this.pinchRises++;
+        this.tripodQualities.push(m.tripodQuality);
+        this.thumbOppositions.push(m.thumbOpposition);
+        this.fingersExtended.push(m.fingers);
+        this.fingerIndividuations.push(m.fingerIndividuation);
+        this.romNorms.push(m.romNorm);
+        if (m.tremorFreqHz > 0) this.tremorFreqs.push(m.tremorFreqHz);
+        if (m.intentionTremor > 0) this.intentionTremors.push(m.intentionTremor);
+
+        if (m.pinchActive && !this.prevPinch) {
+          this.pinchRises++;
+          this.pinchDistances.push(m.pinchMm);
+        }
         this.prevPinch = m.pinchActive;
         this._lastPinchMm = m.pinchMm || 0;
 
         // B1: Detect movement onset after stimulus
         if (this._waitingForReaction && m.palmSpeed > this._baselineSpeed + 15) {
           const rt = Date.now() - this._stimulusTime;
-          if (rt > 50 && rt < 5000) {
+          if (rt >= 120 && rt < 3000) {
             this._reactionTimes.push(rt);
           }
           this._waitingForReaction = false;
@@ -218,14 +246,16 @@ export class BiomarkerAccumulator {
   setOutcome(o) { Object.assign(this.outcome, o); }
 
   _fatigueIndex() {
-    if (this.speed.length < 6) return 0;
-    const n = this.speed.length;
-    const k = Math.max(1, Math.floor(n / 3));
-    const f = mean(this.speed.slice(0, k).map((s) => s.v));
-    const l = mean(this.speed.slice(-k).map((s) => s.v));
-    if (f <= 0) return 0;
+    const reps = this._repetitions;
+    if (reps.length < 6) return 0;
+    const n = Math.min(3, Math.floor(reps.length / 2));
+    const firstPeaks = reps.slice(0, n).map(r => r.peakVelocity);
+    const lastPeaks = reps.slice(-n).map(r => r.peakVelocity);
+    const f = mean(firstPeaks);
+    const l = mean(lastPeaks);
+    if (!f || f <= 0) return 0;
     const change = ((l - f) / f) * 100;
-    return clamp(Math.min(0, change), -30, 0);
+    return clamp(change, -30, 30);
   }
 
   _computeRepetitionStats() {

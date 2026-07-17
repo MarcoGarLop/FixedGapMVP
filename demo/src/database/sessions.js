@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient.js';
 
-export async function createSession(subjectId) {
+export async function createSession(subjectId, startedAt = null) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not authenticated' };
 
@@ -13,13 +13,16 @@ export async function createSession(subjectId) {
     platform: navigator.platform,
   };
 
+  const payload = {
+    subject_id: subjectId,
+    operator_id: user.id,
+    device,
+  };
+  if (startedAt) payload.started_at = startedAt;
+
   const { data, error } = await supabase
     .from('sessions')
-    .insert({
-      subject_id: subjectId,
-      operator_id: user.id,
-      device,
-    })
+    .insert(payload)
     .select()
     .single();
 
@@ -28,10 +31,14 @@ export async function createSession(subjectId) {
 }
 
 export async function updateSessionQuality(sessionId, qualityPct, avgFps) {
-  await supabase
+  const { error } = await supabase
     .from('sessions')
     .update({ quality_frames_pct: qualityPct, avg_fps: avgFps })
     .eq('id', sessionId);
+
+  if (error) {
+    console.error('[sessions] updateSessionQuality failed:', error.message, error.code);
+  }
 }
 
 export async function listSessionsForSubject(subjectId) {

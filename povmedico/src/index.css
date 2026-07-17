@@ -1,45 +1,71 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Clay 3D Healthcare Palette ── */
-  --color-clay-bg: #F5F1EC;
-  --color-clay-surface: rgba(255, 255, 255, 0.85);
-  --color-clay-surface-solid: #FFFFFF;
-  --color-clay-surface-elevated: #FBF8F5;
-  --color-clay-surface-hover: #F0EBE5;
-  --color-clay-border: #E6DDD4;
-  --color-clay-border-active: #D4C8BC;
+  /* ── Deep Blue Glassmorphism (Backup) ── */
+  /*
+  --color-clay-bg: #0B132B;
+  --color-clay-surface: rgba(28, 37, 65, 0.6);
+  --color-clay-surface-solid: #1C2541;
+  --color-clay-surface-elevated: rgba(42, 55, 89, 0.8);
+  --color-clay-surface-hover: rgba(58, 80, 107, 0.6);
+  --color-clay-border: rgba(255, 255, 255, 0.08);
+  --color-clay-border-active: rgba(0, 212, 255, 0.4);
+  --color-accent: #00D4FF;
+  --color-accent-soft: rgba(0, 212, 255, 0.15);
+  --color-dom-proximal: #EF4444;
+  --color-dom-distal: #00D4FF;
+  --color-dom-pronosup: #3B82F6;
+  --color-ok: #10B981;
+  --color-warning: #F59E0B;
+  --color-alert: #EF4444;
+  --color-txt: #FFFFFF;
+  --color-txt-secondary: #94A3B8;
+  --color-txt-muted: #64748B;
+  --shadow-clay: 0 8px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-clay-hover: 0 12px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  --shadow-clay-elevated: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --shadow-clay-inset: inset 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  */
 
-  /* ── Accent (clinical teal) ── */
-  --color-accent: #2BA89C;
-  --color-accent-soft: rgba(43, 168, 156, 0.12);
+  /* ── Midnight Deep Blue (High-Tech Clinical) ── */
+  --color-clay-bg: #050B14; /* Casi negro azulado */
+  --color-clay-surface: rgba(10, 19, 38, 0.7); /* Deep blue-black semi-transparente */
+  --color-clay-surface-solid: #0A1326;
+  --color-clay-surface-elevated: #0E1A34;
+  --color-clay-surface-hover: #132242;
+  --color-clay-border: rgba(255, 255, 255, 0.05); /* Borde levísimo blanquecino */
+  --color-clay-border-active: rgba(0, 212, 255, 0.4);
 
-  /* ── Domain colors (matte, clay-like) ── */
-  --color-dom-proximal: #D4695C;
-  --color-dom-distal: #2BA89C;
-  --color-dom-pronosup: #5B8EC4;
+  /* ── Accent (Electric Cyan & White) ── */
+  --color-accent: #00D4FF; /* Cyan brillante para máxima visibilidad en oscuros */
+  --color-accent-soft: rgba(0, 212, 255, 0.1);
 
-  /* ── Semantic (soft, not neon) ── */
-  --color-ok: #4CAF82;
-  --color-warning: #D4943A;
-  --color-alert: #C4524A;
+  /* ── Domain colors ── */
+  --color-dom-proximal: #FF4D4D;
+  --color-dom-distal: #00D4FF;
+  --color-dom-pronosup: #A855F7;
 
-  /* ── Text (warm dark tones, WCAG AA+) ── */
-  --color-txt: #2A2218;
-  --color-txt-secondary: #5C5043;
-  --color-txt-muted: #8C7F73;
+  /* ── Semantic ── */
+  --color-ok: #10B981;
+  --color-warning: #F59E0B;
+  --color-alert: #EF4444;
 
-  /* ── Clay radii (chunky, rounded) ── */
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
+  /* ── Text (High contrast) ── */
+  --color-txt: #FFFFFF; /* Blanco puro para datos */
+  --color-txt-secondary: #94A3B8; /* Gris azulado para secundario */
+  --color-txt-muted: #475569;
 
-  /* ── Clay shadows (double: inner highlight + outer soft) ── */
-  --shadow-clay: 0 4px 14px rgba(44, 36, 32, 0.06), 0 1.5px 4px rgba(44, 36, 32, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  --shadow-clay-hover: 0 8px 24px rgba(44, 36, 32, 0.09), 0 2px 6px rgba(44, 36, 32, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --shadow-clay-elevated: 0 12px 40px rgba(44, 36, 32, 0.1), 0 3px 10px rgba(44, 36, 32, 0.06), inset 0 1.5px 0 rgba(255, 255, 255, 0.85);
-  --shadow-clay-inset: inset 0 2px 6px rgba(44, 36, 32, 0.06), inset 0 0 0 1px rgba(44, 36, 32, 0.03);
+  /* ── Radii ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* ── Shadows (Glassmorphic & Deep) ── */
+  --shadow-clay: 0 8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-clay-hover: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-clay-elevated: 0 16px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-clay-inset: inset 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 
   /* ── Fonts (Nunito headings, DM Sans body) ── */
   --font-display: 'Nunito', sans-serif;

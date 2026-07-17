@@ -227,10 +227,10 @@ canvas#main, canvas#jarra-canvas, canvas#interruptores-canvas {
 /* --- Clinical View --- */
 #clinical-view {
   position: fixed; inset: 0; z-index: 200;
-  background: #F2E8D5;
+  background: radial-gradient(circle at center, #1C2541 0%, #0B132B 100%);
   font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
   letter-spacing: 0.04em;
-  padding: 12px;
+  padding: 16px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: auto repeat(5, 1fr);
@@ -241,35 +241,39 @@ canvas#main, canvas#jarra-canvas, canvas#interruptores-canvas {
     "cam cam cam r5  r6"
     "cri cri cri r7  r8"
     "b1  b2  b3  r9  r10";
-  gap: 8px;
+  gap: 12px;
 }
 .cv-header {
   grid-area: hdr;
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 9px; color: #7A6648; letter-spacing: 0.18em;
-  padding-bottom: 4px;
-  border-bottom: 1px dashed #B89968;
+  font-size: 10px; color: #64748B; letter-spacing: 0.2em;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .cv-cam-panel {
   grid-area: cam;
-  background: #E8DBBE; padding: 6px;
-  box-shadow: 0 0 0 1px #3A2A14, 0 0 0 2px #8B6B3D, inset 3px 0 0 0 #5A8A6B;
+  background: rgba(15, 23, 42, 0.4); padding: 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   display: flex; flex-direction: column;
+  backdrop-filter: blur(12px);
 }
 .cv-cam-header {
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 9px; color: #2E2418; font-weight: 700;
-  letter-spacing: 0.18em; padding: 2px 4px 6px;
+  font-size: 10px; color: #94A3B8; font-weight: 700;
+  letter-spacing: 0.2em; padding: 4px 6px 8px;
 }
 .cv-rec {
-  font-size: 7px; color: #B0432E; padding: 2px 4px;
-  background: #FBF4E2; box-shadow: inset 0 0 0 1px #B0432E;
+  font-size: 8px; color: #EF4444; padding: 3px 6px;
+  background: rgba(239, 68, 68, 0.1); border-radius: 4px;
   font-weight: 800; letter-spacing: 0.16em;
 }
 .cv-cam-viewport {
   position: relative; flex: 1; min-height: 0;
-  background: #1a1410; overflow: hidden;
-  box-shadow: inset 0 0 0 1px #3A2A14;
+  background: #000; overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.05);
 }
 .cv-cam-viewport video {
   position: absolute; top: 0; left: 0;
@@ -283,71 +287,89 @@ canvas#main, canvas#jarra-canvas, canvas#interruptores-canvas {
 }
 .cv-cam-telemetry {
   position: absolute; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.55); color: #E8DBBE;
-  font-size: 8px; letter-spacing: 0.18em; padding: 3px 6px;
+  background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+  color: #E2E8F0;
+  font-size: 9px; letter-spacing: 0.2em; padding: 12px 8px 6px;
 }
 .cv-cri-hero {
   grid-area: cri;
-  background: #E8DBBE; padding: 10px 14px;
-  box-shadow: 0 0 0 1px #3A2A14, 0 0 0 2px #8B6B3D, inset 4px 0 0 0 #3F8F5C;
-  display: flex; align-items: center; gap: 14px;
+  background: rgba(255, 255, 255, 0.03); padding: 12px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(0, 212, 255, 0.05);
+  display: flex; align-items: center; gap: 16px;
+  backdrop-filter: blur(12px);
+  transition: transform 0.2s ease;
 }
+.cv-cri-hero:hover { transform: translateY(-2px); }
 .cv-cri-title {
-  font-size: 8px; color: #7A6648; letter-spacing: 0.22em;
-  font-weight: 700;
+  font-size: 9px; color: #94A3B8; letter-spacing: 0.22em;
+  font-weight: 700; margin-bottom: 2px;
 }
-.cv-cri-row { display: flex; align-items: baseline; gap: 8px; }
+.cv-cri-row { display: flex; align-items: baseline; gap: 10px; }
 .cv-cri-num {
-  font-size: 36px; line-height: 0.9; font-weight: 800;
-  text-shadow: 2px 2px 0 #3A2A14;
+  font-size: 42px; line-height: 0.9; font-weight: 800; color: #FFFFFF;
+  text-shadow: 0 0 16px rgba(0, 212, 255, 0.4);
 }
-.cv-cri-max { font-size: 11px; color: #7A6648; font-weight: 700; }
+.cv-cri-max { font-size: 12px; color: #64748B; font-weight: 700; }
 .cv-cri-badge {
-  font-size: 8px; padding: 2px 5px; background: #FBF4E2;
-  font-weight: 800; letter-spacing: 0.18em;
+  font-size: 9px; padding: 3px 6px; background: rgba(255,255,255,0.05);
+  font-weight: 800; letter-spacing: 0.18em; border-radius: 4px;
   box-shadow: inset 0 0 0 1px currentColor;
 }
 .cv-card {
-  background: #FBF4E2; padding: 12px 14px;
-  box-shadow: 0 0 0 1px #3A2A14, 0 0 0 2px #8B6B3D;
+  background: rgba(255, 255, 255, 0.03); padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   display: flex; flex-direction: column; justify-content: space-between;
   min-height: 0; overflow: hidden;
+  backdrop-filter: blur(12px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.cv-card:hover { 
+  transform: translateY(-2px); 
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
 }
 .cv-card-header {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 8px;
 }
 .cv-code {
-  font-size: 9px; color: #FBF4E2; background: #2E2418;
-  padding: 2px 5px; font-weight: 800; letter-spacing: 0.12em;
+  font-size: 9px; color: #0F172A; background: #E2E8F0;
+  padding: 3px 6px; font-weight: 800; letter-spacing: 0.12em;
+  border-radius: 4px;
 }
 .cv-name {
-  font-size: 11px; color: #2E2418; letter-spacing: 0.1em; font-weight: 700;
+  font-size: 11px; color: #F1F5F9; letter-spacing: 0.1em; font-weight: 700;
   flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .cv-status {
-  font-size: 9px; padding: 2px 5px; background: #E8DBBE;
+  font-size: 9px; padding: 3px 6px; background: rgba(255,255,255,0.05);
   font-weight: 800; letter-spacing: 0.12em;
-  border: 1px solid;
+  border-radius: 4px;
 }
 .cv-card-value { display: flex; align-items: baseline; gap: 6px; margin-top: auto; }
 .cv-val {
-  font-size: 32px; line-height: 1; color: #2E2418; font-weight: 800;
-  text-shadow: 1px 1px 0 #3A2A14;
+  font-size: 36px; line-height: 1; color: #FFFFFF; font-weight: 800;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
 }
-.cv-unit { font-size: 12px; color: #7A6648; font-weight: 700; }
+.cv-unit { font-size: 12px; color: #94A3B8; font-weight: 700; }
 
 #cv-back-btn {
-  position: fixed; bottom: 12px; right: 12px; z-index: 9999;
-  background: rgba(10,20,40,0.92); border: 2px solid #00ff88;
-  color: #00ff88; padding: 6px 14px; border-radius: 6px;
-  font-size: 10px; cursor: pointer; font-family: monospace;
-  font-weight: 700; letter-spacing: 0.05em;
-  box-shadow: 0 0 12px rgba(0,255,136,0.2);
-  transition: transform 0.2s, box-shadow 0.2s;
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(0, 212, 255, 0.4);
+  color: #00D4FF; padding: 10px 20px; border-radius: 20px;
+  font-size: 11px; cursor: pointer; font-family: monospace;
+  font-weight: 700; letter-spacing: 0.1em;
+  box-shadow: 0 4px 16px rgba(0, 212, 255, 0.2);
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
 }
 #cv-back-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 16px rgba(0,255,136,0.4);
+  transform: translateY(-2px);
+  background: rgba(0, 212, 255, 0.1);
+  box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
 }
 
 /* --- Clay 3D "Next game" button --- */
@@ -656,6 +678,7 @@ canvas#main, canvas#jarra-canvas, canvas#interruptores-canvas {
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 .chat-title { font-size: 16px; font-weight: 800; color: #fff; margin: 0; flex: 1; text-align: center; }
+.chat-header-actions { display: flex; align-items: center; }
 
 /* Views */
 .chat-body { flex: 1; position: relative; overflow: hidden; }

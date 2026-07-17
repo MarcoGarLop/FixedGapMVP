@@ -1,26 +1,8 @@
 import { generateMockData } from './mockGenerator';
 import type { Patient, Session, Clinician, PatientPrediction } from './types';
 import { generatePrediction } from '../domain/predictions';
-import { buildAlpha, ALPHA_ID } from './alpha';
 
 const data = generateMockData();
-
-// Prepend the real "Alpha" patient (fed by actual gameplay via localStorage),
-// so it shows up first in the clinician view. Falls back gracefully to the
-// mock-only dataset when no gameplay has been recorded yet.
-(function injectAlpha() {
-  try {
-    const alpha = buildAlpha('clin-001');
-    if (!alpha) return;
-    // Avoid duplicates on hot-reload.
-    if (!data.patients.some(p => p.id === ALPHA_ID)) {
-      data.patients.unshift(alpha.patient);
-      data.sessions.unshift(...alpha.sessions);
-    }
-  } catch (e) {
-    console.warn('[alpha] injection skipped:', e);
-  }
-})();
 
 function delay<T>(value: T): Promise<T> {
   return Promise.resolve(value);

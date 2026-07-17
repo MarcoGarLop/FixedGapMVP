@@ -11,13 +11,13 @@ import { transformGameResult } from './metricsTransform.js';
 //
 // Returns: { ok, sessionId, error? }
 
-export async function uploadPlaythrough(subjectId, games) {
+export async function uploadPlaythrough(subjectId, games, startedAt = null) {
   if (!subjectId || !games || games.length === 0) {
     return { ok: false, error: 'Missing subjectId or games' };
   }
 
-  // 1. Create session
-  const sessionResult = await createSession(subjectId);
+  // 1. Create session (startedAt captures the real moment the player started)
+  const sessionResult = await createSession(subjectId, startedAt);
   if (!sessionResult.ok) {
     console.error('[upload] Session creation failed:', sessionResult.error);
     return { ok: false, error: sessionResult.error };
@@ -33,28 +33,49 @@ export async function uploadPlaythrough(subjectId, games) {
 
     const row = transformGameResult(finalized, sessionId, i + 1, accumulator);
 
-    const { error } = await supabase
+    const { error, status, statusText } = await supabase
       .from('game_results')
       .insert(row);
 
     if (error) {
-      console.error(`[upload] game_results insert failed for game ${i + 1}:`, error.message);
-      errors.push(error.message);
+      console.error(`[upload] game_results insert FAILED for game ${i + 1} (${row.game_key}):`, {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status,
+        statusText,
+      });
+      errors.push(`${row.game_key}: ${error.message} (${error.code || 'no-code'})`);
+    } else {
+      console.log(`[upload] game_results inserted OK: game ${i + 1} (${row.game_key})`);
     }
   }
 
   // 3. Update session quality (average across games)
-  const qualityScores = games
-    .filter(g => g.accumulator)
-    .map(g => {
-      const acc = g.accumulator;
-      const total = acc.frames || 1;
-      return 100; // Placeholder until we track quality_frames properly
-    });
+  const accsWithData = games.filter(g => g.accumulator);
+  if (accsWithData.length > 0) {
+    let totalGoodFrames = 0;
+    let totalAttemptedFrames = 0;
+    let totalDurationMs = 0;
 
-  if (qualityScores.length > 0) {
-    const avgQuality = qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length;
-    await updateSessionQuality(sessionId, avgQuality, null);
+    for (const g of accsWithData) {
+      const acc = g.accumulator;
+      const goodFrames = acc.frames || 0;
+      const attemptedFrames = acc._totalFramesAttempted || goodFrames || 1;
+      totalGoodFrames += goodFrames;
+      totalAttemptedFrames += attemptedFrames;
+      totalDurationMs += (g.finalized?.durationMs || 0);
+    }
+
+    const qualityPct = totalAttemptedFrames > 0
+      ? Math.round((totalGoodFrames / totalAttemptedFrames) * 100 * 10) / 10
+      : null;
+    const avgFps = totalDurationMs > 0
+      ? Math.round((totalGoodFrames / (totalDurationMs / 1000)) * 10) / 10
+      : null;
+
+    await updateSessionQuality(sessionId, qualityPct, avgFps);
   }
 
   if (errors.length > 0) {

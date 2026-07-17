@@ -41,6 +41,25 @@ export function RehabCorrelation() {
       <p className="text-sm text-clay-text-secondary mb-4">{patient.pseudonym}</p>
       <CorrelationDisclaimer className="mb-6" />
 
+      {patient.prescribedExercises.length === 0 && (
+        <Card className="mb-6 flex flex-col items-center justify-center py-12 text-center !bg-clay-surface-elevated border-dashed border-2 border-clay-border/50">
+          <div className="w-12 h-12 mb-3 opacity-50">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-clay-text-muted">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <h3 className="text-base font-bold text-clay-text">Sin pautas de rehabilitación</h3>
+          <p className="text-sm text-clay-text-secondary max-w-sm mt-1">
+            Este paciente todavía no tiene ejercicios clínicos prescritos. 
+            La gráfica de correlación se generará cuando el rehabilitador asigne una pauta.
+          </p>
+        </Card>
+      )}
+
       {patient.prescribedExercises.map(exercise => (
         <ExerciseCorrelation
           key={exercise.id}
@@ -55,9 +74,19 @@ export function RehabCorrelation() {
       {/* Before/After comparison for events */}
       <Card className="mt-6">
         <h2 className="text-lg font-bold text-clay-text mb-4">Comparación antes/después de cambios de rutina</h2>
-        {patient.eventMarkers
-          .filter(e => e.type === 'exercise-change' || e.type === 'botox' || e.type === 'medication')
-          .map(event => {
+        
+        {(() => {
+          const filteredEvents = patient.eventMarkers.filter(e => e.type === 'exercise-change' || e.type === 'botox' || e.type === 'medication');
+          
+          if (filteredEvents.length === 0) {
+            return (
+              <div className="py-6 text-center">
+                <p className="text-sm text-clay-text-muted italic">No hay eventos médicos ni cambios de rutina registrados para evaluar el impacto.</p>
+              </div>
+            );
+          }
+
+          return filteredEvents.map(event => {
             const eventDate = new Date(event.date);
             const before = sessions.filter(s => new Date(s.date) < eventDate).slice(-5);
             const after = sessions.filter(s => new Date(s.date) >= eventDate).slice(0, 5);
@@ -85,7 +114,8 @@ export function RehabCorrelation() {
                 </div>
               </div>
             );
-          })}
+          });
+        })()}
       </Card>
     </div>
   );

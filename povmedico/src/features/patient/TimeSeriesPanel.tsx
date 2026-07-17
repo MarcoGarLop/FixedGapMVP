@@ -157,6 +157,12 @@ export function TimeSeriesPanel({ sessions, patient }: Props) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      
+      {patient.eventMarkers.length === 0 && (
+        <div className="mt-3 text-center text-[10px] text-clay-text-muted italic border-t border-clay-border/50 pt-2">
+          La línea de tiempo no muestra eventos médicos cruzados porque no hay ninguno registrado para este paciente.
+        </div>
+      )}
     </Card>
   );
 }

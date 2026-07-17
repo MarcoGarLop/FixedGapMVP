@@ -1,12 +1,8 @@
 import { type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useStore } from '../store/useStore';
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { clinicians, activeClinicianId, setActiveClinician } = useStore();
   const location = useLocation();
-
-  const activeClinician = clinicians.find(c => c.id === activeClinicianId);
 
   return (
     <div className="min-h-screen bg-clay-bg flex">
@@ -30,36 +26,20 @@ export function Layout({ children }: { children: ReactNode }) {
           <SidebarLink to="/reports" icon={<ReportIcon />} label="Informes" active={location.pathname === '/reports'} />
         </nav>
 
-        {/* Clinician */}
-        <div className="px-4 py-4 border-t border-clay-border">
-          <div className="text-[10px] text-txt-muted uppercase tracking-widest font-bold font-display mb-2">Facultativo</div>
-          <select
-            value={activeClinicianId}
-            onChange={e => setActiveClinician(e.target.value)}
-            className="w-full bg-clay-surface-elevated border border-clay-border rounded-xl px-3 py-2 text-[12px] text-txt font-medium focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent/50 transition-all cursor-pointer shadow-clay-inset"
+        {/* Actions */}
+        <div className="px-4 py-4 mt-auto">
+          <a
+            href="/"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-txt bg-clay-surface border border-clay-border hover:bg-clay-surface-hover hover:-translate-y-0.5 transition-all duration-300 shadow-clay w-full no-underline"
           >
-            {clinicians.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          {activeClinician && (
-            <div className="flex items-center gap-2.5 mt-3">
-              <div className="w-7 h-7 rounded-lg bg-accent/12 border border-accent/20 flex items-center justify-center shadow-clay-inset">
-                <span className="text-[10px] font-bold text-accent font-display">
-                  {activeClinician.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                </span>
-              </div>
-              <div>
-                <div className="text-[11px] font-semibold text-txt leading-tight">{activeClinician.name.split(' ').slice(0, 2).join(' ')}</div>
-                <div className="text-[10px] text-txt-muted capitalize">{activeClinician.role.replace('-', ' ')}</div>
-              </div>
-            </div>
-          )}
-          <div className="mt-3">
-            <span className="text-[9px] text-ok px-2 py-1 rounded-lg bg-ok/10 border border-ok/20 font-bold tracking-wide uppercase font-display">
-              Seudonimizado
+            <span className="w-5 h-5 flex items-center justify-center text-accent">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
             </span>
-          </div>
+            <span className="font-display text-center flex-1 pr-5">Volver al Operador</span>
+          </a>
         </div>
       </aside>
 

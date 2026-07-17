@@ -188,7 +188,11 @@ export function CohortView() {
                           </div>
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <AdherenceHeatmap logs={adherenceLogs} />
+                          {p.prescribedExercises.length > 0 ? (
+                            <AdherenceHeatmap logs={adherenceLogs} />
+                          ) : (
+                            <span className="text-[10px] text-txt-muted italic">Sin pauta</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="font-display font-bold tabular-nums text-txt-secondary">{p.priorityScore.toFixed(1)}</span>
@@ -308,7 +312,11 @@ function PatientCard({ patient: p, sessions, expanded, onToggle, onNavigate, var
               </div>
               <div>
                 <div className="text-[9px] text-txt-muted font-semibold uppercase tracking-wider mb-1 text-right">Adherencia 7d</div>
-                <AdherenceHeatmap logs={p.prescribedExercises.flatMap(e => e.adherenceLog)} />
+                {p.prescribedExercises.length > 0 ? (
+                  <AdherenceHeatmap logs={p.prescribedExercises.flatMap(e => e.adherenceLog)} />
+                ) : (
+                  <span className="text-[10px] text-txt-muted italic block text-right mt-2">Sin pauta</span>
+                )}
               </div>
             </div>
 
@@ -338,8 +346,10 @@ function computeDelta7d(sessions: Session[]): number {
   return recent - weekAgo;
 }
 
-function computeAverageAdherence(patients: EnrichedPatient[]): number {
-  const logs = patients.flatMap(p => p.prescribedExercises.flatMap(e => e.adherenceLog));
+function computeAverageAdherence(patients: EnrichedPatient[]): number | null {
+  const patientsWithExercises = patients.filter(p => p.prescribedExercises.length > 0);
+  if (patientsWithExercises.length === 0) return null;
+  const logs = patientsWithExercises.flatMap(p => p.prescribedExercises.flatMap(e => e.adherenceLog));
   if (logs.length === 0) return 0;
   const completed = logs.filter(log => log.completed).length;
   return Math.round((completed / logs.length) * 100);
@@ -408,7 +418,7 @@ function ImpactStrip({ patientsCount, alertCount, deterioratingCount, avgAdheren
   patientsCount: number;
   alertCount: number;
   deterioratingCount: number;
-  avgAdherence: number;
+  avgAdherence: number | null;
   lastSync: string;
 }) {
   return (
@@ -416,7 +426,7 @@ function ImpactStrip({ patientsCount, alertCount, deterioratingCount, avgAdheren
       <ImpactMetric label="Pacientes monitorizados" value={patientsCount.toString()} />
       <ImpactMetric label="Alertas activas" value={alertCount.toString()} tone={alertCount > 0 ? 'alert' : 'default'} />
       <ImpactMetric label="Deterioro 7 días" value={deterioratingCount.toString()} tone={deterioratingCount > 0 ? 'warning' : 'default'} />
-      <ImpactMetric label="Adherencia media" value={`${avgAdherence}%`} tone={avgAdherence < 70 ? 'warning' : 'ok'} />
+      <ImpactMetric label="Adherencia media" value={avgAdherence !== null ? `${avgAdherence}%` : 'N/A'} tone={avgAdherence !== null && avgAdherence < 70 ? 'warning' : 'ok'} />
       <ImpactMetric label="Última sincronización" value={lastSync} />
     </div>
   );

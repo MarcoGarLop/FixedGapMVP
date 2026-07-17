@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useReportStore } from '../../store/reportStore';
 import { Card } from '../../components/Card';
@@ -23,7 +23,6 @@ function uid(): string {
 
 function GenerarTab() {
   const patients = useStore((s) => s.patients);
-  const activeRole = useStore((s) => s.activeRole);
   const templates = useReportStore((s) => s.templates);
   const addReport = useReportStore((s) => s.addReport);
 
@@ -37,12 +36,7 @@ function GenerarTab() {
   const [successMsg, setSuccessMsg] = useState('');
   const [generatedPreview, setGeneratedPreview] = useState<GeneratedReport | null>(null);
 
-  const visibleSections = useMemo(() => {
-    if (activeRole !== 'physician') {
-      return ALL_SECTIONS.filter((s) => s.id !== 'predictions');
-    }
-    return ALL_SECTIONS;
-  }, [activeRole]);
+  const visibleSections = ALL_SECTIONS;
 
   function togglePatient(id: string) {
     setSelectedPatients((prev) =>
@@ -62,9 +56,6 @@ function GenerarTab() {
       const tpl = templates.find((t) => t.id === templateId);
       if (tpl) {
         let sections = tpl.sections;
-        if (activeRole !== 'physician') {
-          sections = sections.filter((s) => s !== 'predictions');
-        }
         setSelectedSections(sections);
       }
     }

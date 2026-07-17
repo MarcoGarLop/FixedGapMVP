@@ -340,16 +340,15 @@ interface PrescriptionRow {
 }
 
 function PrescripcionesTab() {
-  const { patients, sessions, activeClinicianId } = useStore();
+  const { patients, sessions } = useStore();
   const [domainFilter, setDomainFilter] = useState<Domain | ''>('');
   const [intensityFilter, setIntensityFilter] = useState<Intensity | ''>('');
   const [lowAdherenceOnly, setLowAdherenceOnly] = useState(false);
 
   const rows = useMemo<PrescriptionRow[]>(() => {
-    const clinicianPatients = patients.filter(p => p.clinicianIds.includes(activeClinicianId));
     const result: PrescriptionRow[] = [];
 
-    for (const patient of clinicianPatients) {
+    for (const patient of patients) {
       for (const ex of patient.prescribedExercises) {
         result.push({
           patientPseudonym: patient.pseudonym,
@@ -361,7 +360,7 @@ function PrescripcionesTab() {
     }
 
     return result;
-  }, [patients, sessions, activeClinicianId]);
+  }, [patients, sessions]);
 
   const filteredRows = useMemo(() => {
     let r = rows;
@@ -448,7 +447,7 @@ function PrescripcionesTab() {
             {filteredRows.length === 0 && (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-txt-muted text-sm">
-                  No se encontraron prescripciones con estos filtros.
+                  {rows.length === 0 ? 'No hay pautas de rehabilitación asignadas a ningún paciente.' : 'No se encontraron prescripciones con estos filtros.'}
                 </td>
               </tr>
             )}
@@ -479,23 +478,18 @@ function AdherenceBar({ value }: { value: number }) {
 // ─── Correlación Tab ─────────────────────────────────────────────────────────
 
 function CorrelacionTab() {
-  const { patients, sessions, activeClinicianId } = useStore();
+  const { patients, sessions } = useStore();
 
-  const clinicianPatients = useMemo(
-    () => patients.filter(p => p.clinicianIds.includes(activeClinicianId)),
-    [patients, activeClinicianId],
-  );
-
-  const [selectedPatientId, setSelectedPatientId] = useState<string>(clinicianPatients[0]?.id ?? '');
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(patients[0]?.id ?? '');
   const [selectedDomain, setSelectedDomain] = useState<Domain>('proximal-grip');
 
   useEffect(() => {
-    if (!selectedPatientId && clinicianPatients.length > 0) {
-      setSelectedPatientId(clinicianPatients[0].id);
+    if (!selectedPatientId && patients.length > 0) {
+      setSelectedPatientId(patients[0].id);
     }
-  }, [clinicianPatients, selectedPatientId]);
+  }, [patients, selectedPatientId]);
 
-  const selectedPatient = clinicianPatients.find(p => p.id === selectedPatientId);
+  const selectedPatient = patients.find(p => p.id === selectedPatientId);
   const patientSessions = useMemo(
     () => sessions.filter(s => s.patientId === selectedPatientId).sort((a, b) => a.date.localeCompare(b.date)),
     [sessions, selectedPatientId],
@@ -576,7 +570,7 @@ function CorrelacionTab() {
           onChange={e => setSelectedPatientId(e.target.value)}
           className="px-3 py-1.5 rounded-lg border border-clay-border bg-clay-surface-solid text-sm text-txt focus:outline-none focus:ring-2 focus:ring-accent/30"
         >
-          {clinicianPatients.map(p => (
+          {patients.map(p => (
             <option key={p.id} value={p.id}>{p.pseudonym}</option>
           ))}
         </select>
@@ -795,23 +789,19 @@ function BridgeMetric({ label, value, detail, tone = 'default' }: {
 // ─── Adherencia Tab ──────────────────────────────────────────────────────────
 
 function AdherenciaTab() {
-  const { patients, activeClinicianId } = useStore();
-
-  const clinicianPatients = useMemo(
-    () => patients.filter(p => p.clinicianIds.includes(activeClinicianId)),
-    [patients, activeClinicianId],
-  );
+  const { patients } = useStore();
+  const [domainFilter] = useState<Domain | ''>('');
 
   const patientAdherences = useMemo(() => {
-    return clinicianPatients.map(patient => {
-      const exercises = patient.prescribedExercises;
+    return patients.map(patient => {
+      const exercises = patient.prescribedExercises.filter(e => domainFilter ? e.targetDomain === domainFilter : true);
       if (exercises.length === 0) return { patient, avgAdherence: 0, meetsTarget: false };
 
       const adherences = exercises.map(computeAdherence14d);
       const avg = Math.round(adherences.reduce((a, b) => a + b, 0) / adherences.length);
       return { patient, avgAdherence: avg, meetsTarget: avg >= 70 };
     });
-  }, [clinicianPatients]);
+  }, [patients, domainFilter]);
 
   const meetingTarget = patientAdherences.filter(p => p.meetsTarget).length;
   const totalWithExercises = patientAdherences.filter(p => p.patient.prescribedExercises.length > 0).length;
@@ -820,14 +810,14 @@ function AdherenciaTab() {
   const domainDistribution = useMemo(() => {
     const domains: Domain[] = ['proximal-grip', 'distal-flex-ext', 'prono-supination'];
     return domains.map(domain => {
-      const exercises = clinicianPatients.flatMap(p =>
+      const exercises = patients.flatMap(p =>
         p.prescribedExercises.filter(e => e.targetDomain === domain)
       );
       if (exercises.length === 0) return { domain, label: DOMAIN_LABELS[domain], avg: 0, color: DOMAIN_COLORS[domain] };
       const avg = Math.round(exercises.map(computeAdherence14d).reduce((a, b) => a + b, 0) / exercises.length);
       return { domain, label: DOMAIN_LABELS[domain], avg, color: DOMAIN_COLORS[domain] };
     });
-  }, [clinicianPatients]);
+  }, [patients]);
 
   const lowestAdherence = useMemo(
     () => [...patientAdherences]
@@ -915,15 +905,14 @@ function AdherenciaTab() {
 
 function ExercisesPage() {
   const [activeTab, setActiveTab] = useState<TabId>('correlacion');
-  const { loaded, load, patients, sessions, activeClinicianId } = useStore();
+  const { loaded, load, patients, sessions } = useStore();
 
   useEffect(() => {
     if (!loaded) load();
   }, [loaded, load]);
 
   const hospitalImpact = useMemo(() => {
-    const clinicianPatients = patients.filter(patient => patient.clinicianIds.includes(activeClinicianId));
-    const patientsWithExercises = clinicianPatients.filter(patient => patient.prescribedExercises.length > 0);
+    const patientsWithExercises = patients.filter(patient => patient.prescribedExercises.length > 0);
     let reviewCandidates = 0;
     let nonResponders = 0;
 
@@ -943,7 +932,7 @@ function ExercisesPage() {
       reviewCandidates,
       nonResponders,
     };
-  }, [activeClinicianId, patients, sessions]);
+  }, [patients, sessions]);
 
   return (
     <div className="p-6">

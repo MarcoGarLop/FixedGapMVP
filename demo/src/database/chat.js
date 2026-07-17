@@ -47,6 +47,7 @@ export async function loadConversations() {
       id, type, name, updated_at,
       conversation_participants (
         operator_id,
+        hidden,
         operators ( username, display_name )
       )
     `)

@@ -12,7 +12,8 @@ export async function showDashboard(container, onSelectSubject, onCreateSubject,
     listSubjects()
   ]);
 
-  const operatorName = operator?.display_name || operator?.username || 'Operador';
+  let rawOperatorName = operator?.display_name || operator?.username || 'Operador';
+  const operatorName = rawOperatorName.charAt(0).toUpperCase() + rawOperatorName.slice(1).toLowerCase();
 
   let subjectsHtml = '';
   if (subjects.length === 0) {
@@ -42,7 +43,7 @@ export async function showDashboard(container, onSelectSubject, onCreateSubject,
       <header class="dash-header">
         <div class="dash-logo">FixedGap</div>
         <div class="dash-user">
-          <span class="operator-name">Dr. ${operatorName}</span>
+          <span class="operator-name">${operatorName}</span>
           <button id="logout-btn" class="text-button">Cerrar Sesión</button>
         </div>
       </header>

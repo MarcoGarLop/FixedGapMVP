@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Patient, Session, Clinician } from '../data/types';
-import { getPatients, getClinicians, getAllSessions } from '../data/api';
+import type { Patient, Session } from '../data/types';
+import { getPatients, getAllSessions } from '../data/api';
 import { computePriorityScore, computeAdherenceDeficit7d } from '../domain/priority';
 
 export type ViewMode = 'list' | 'cards';
@@ -19,16 +19,12 @@ interface Filters {
 interface AppState {
   patients: Patient[];
   sessions: Session[];
-  clinicians: Clinician[];
-  activeClinicianId: string;
-  activeRole: ClinicianRole;
   viewMode: ViewMode;
   filters: Filters;
   patientPriorities: Map<string, number>;
   loaded: boolean;
 
   load: () => Promise<void>;
-  setActiveClinician: (id: string) => void;
   setViewMode: (mode: ViewMode) => void;
   setFilter: <K extends keyof Filters>(key: K, value: Filters[K]) => void;
   resetFilters: () => void;
@@ -48,18 +44,14 @@ const defaultFilters: Filters = {
 export const useStore = create<AppState>((set, get) => ({
   patients: [],
   sessions: [],
-  clinicians: [],
-  activeClinicianId: 'clin-001',
-  activeRole: 'physician',
   viewMode: 'list',
   filters: { ...defaultFilters },
   patientPriorities: new Map(),
   loaded: false,
 
   load: async () => {
-    const [patients, clinicians, sessions] = await Promise.all([
+    const [patients, sessions] = await Promise.all([
       getPatients(),
-      getClinicians(),
       getAllSessions(),
     ]);
 
@@ -81,12 +73,7 @@ export const useStore = create<AppState>((set, get) => ({
       priorities.set(patient.id, computePriorityScore(lastDerived, last5Scores, adherenceDeficit));
     }
 
-    set({ patients, clinicians, sessions, patientPriorities: priorities, loaded: true });
-  },
-
-  setActiveClinician: (id) => {
-    const clinician = get().clinicians.find(c => c.id === id);
-    set({ activeClinicianId: id, activeRole: clinician?.role ?? 'physician' });
+    set({ patients, sessions, patientPriorities: priorities, loaded: true });
   },
 
   setViewMode: (mode) => set({ viewMode: mode }),
@@ -98,9 +85,9 @@ export const useStore = create<AppState>((set, get) => ({
   resetFilters: () => set({ filters: { ...defaultFilters } }),
 
   getFilteredPatients: () => {
-    const { patients, sessions, filters, patientPriorities, activeClinicianId } = get();
+    const { patients, sessions, filters, patientPriorities } = get();
 
-    let filtered = patients.filter(p => p.clinicianIds.includes(activeClinicianId));
+    let filtered = patients;
 
     if (filters.mobility) filtered = filtered.filter(p => p.mobility === filters.mobility);
     if (filters.affectedSide) filtered = filtered.filter(p => p.affectedSide === filters.affectedSide);

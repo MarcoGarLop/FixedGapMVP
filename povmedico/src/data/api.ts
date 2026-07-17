@@ -1,47 +1,103 @@
 import { generateMockData } from './mockGenerator';
 import type { Patient, Session, Clinician, PatientPrediction } from './types';
 import { generatePrediction } from '../domain/predictions';
+import { supabase } from './supabaseClient';
+import { mapSupabaseSubject, mapSupabaseSession } from './supabaseMapper';
 
-const data = generateMockData();
+let cachedMockData = generateMockData();
+let loadedFromSupabase = false;
 
-function delay<T>(value: T): Promise<T> {
-  return Promise.resolve(value);
+// Cache to prevent refetching from Supabase every time
+let mergedPatients: Patient[] = [];
+let mergedSessions: Session[] = [];
+
+async function loadSupabaseData() {
+  if (loadedFromSupabase) return;
+
+  try {
+    const { data: subjects, error: subjectsError } = await supabase.from('subjects').select('*');
+    if (subjectsError) throw subjectsError;
+
+    const { data: sessions, error: sessionsError } = await supabase.from('sessions').select('*');
+    if (sessionsError) throw sessionsError;
+
+    const { data: gameResults, error: gameResultsError } = await supabase.from('game_results').select('*');
+    if (gameResultsError) throw gameResultsError;
+
+    const realPatients: Patient[] = (subjects || []).map(mapSupabaseSubject);
+    
+    const realSessions: Session[] = (sessions || []).map(sessionRow => {
+      const relatedGames = (gameResults || []).filter(gr => gr.session_id === sessionRow.id);
+      return mapSupabaseSession(sessionRow, relatedGames);
+    });
+
+    // Remove ALPHA from mock data if we have real patients so we don't duplicate
+    const filteredMockPatients = cachedMockData.patients.filter(p => p.id !== 'pat-alpha');
+    const filteredMockSessions = cachedMockData.sessions.filter(s => s.patientId !== 'pat-alpha');
+
+    // Merge real data with mock data
+    mergedPatients = [...realPatients, ...filteredMockPatients];
+    mergedSessions = [...realSessions, ...filteredMockSessions];
+    loadedFromSupabase = true;
+
+    // Set baseline session for real patients if available
+    mergedPatients.forEach(p => {
+      if (!p.baselineSessionId) {
+        const pSessions = mergedSessions.filter(s => s.patientId === p.id).sort((a, b) => a.date.localeCompare(b.date));
+        if (pSessions.length > 0) {
+          p.baselineSessionId = pSessions[0].id;
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error loading from Supabase, falling back to mock data:', error);
+    mergedPatients = cachedMockData.patients;
+    mergedSessions = cachedMockData.sessions;
+    loadedFromSupabase = true;
+  }
 }
 
 export async function getPatients(): Promise<Patient[]> {
-  return delay(data.patients);
+  await loadSupabaseData();
+  return mergedPatients;
 }
 
 export async function getPatient(id: string): Promise<Patient | undefined> {
-  return delay(data.patients.find(p => p.id === id));
+  await loadSupabaseData();
+  return mergedPatients.find(p => p.id === id);
 }
 
 export async function getSessions(patientId: string): Promise<Session[]> {
-  return delay(data.sessions.filter(s => s.patientId === patientId));
+  await loadSupabaseData();
+  return mergedSessions.filter(s => s.patientId === patientId);
 }
 
 export async function getSession(sessionId: string): Promise<Session | undefined> {
-  return delay(data.sessions.find(s => s.id === sessionId));
+  await loadSupabaseData();
+  return mergedSessions.find(s => s.id === sessionId);
 }
 
 export async function getAllSessions(): Promise<Session[]> {
-  return delay(data.sessions);
+  await loadSupabaseData();
+  return mergedSessions;
 }
 
 export async function getClinicians(): Promise<Clinician[]> {
-  return delay(data.clinicians);
+  return Promise.resolve(cachedMockData.clinicians);
 }
 
 export async function getClinician(id: string): Promise<Clinician | undefined> {
-  return delay(data.clinicians.find(c => c.id === id));
+  return Promise.resolve(cachedMockData.clinicians.find(c => c.id === id));
 }
 
 export async function getPrediction(
   patientId: string,
   metric: string = 'globalMotorScore'
 ): Promise<PatientPrediction> {
-  const sessions = data.sessions.filter(s => s.patientId === patientId);
-  return delay(generatePrediction(patientId, sessions, metric));
+  await loadSupabaseData();
+  const sessions = mergedSessions.filter(s => s.patientId === patientId);
+  return Promise.resolve(generatePrediction(patientId, sessions, metric));
 }
 
 export async function getCohorteStats(mobility?: string, strokeType?: string): Promise<{
@@ -50,12 +106,13 @@ export async function getCohorteStats(mobility?: string, strokeType?: string): P
   avgAdherence: number;
   scoreDistribution: { range: string; count: number }[];
 }> {
-  let relevantPatients = data.patients;
+  await loadSupabaseData();
+  let relevantPatients = mergedPatients;
   if (mobility) relevantPatients = relevantPatients.filter(p => p.mobility === mobility);
   if (strokeType) relevantPatients = relevantPatients.filter(p => p.strokeType === strokeType);
 
   const patientIds = new Set(relevantPatients.map(p => p.id));
-  const relevantSessions = data.sessions.filter(s => patientIds.has(s.patientId));
+  const relevantSessions = mergedSessions.filter(s => patientIds.has(s.patientId));
 
   const latestByPatient = new Map<string, Session>();
   for (const s of relevantSessions) {
@@ -77,11 +134,16 @@ export async function getCohorteStats(mobility?: string, strokeType?: string): P
   };
 
   const totalAdherence = relevantPatients.reduce((sum, p) => {
+    // Only calculate adherence if there are prescribed exercises
+    if (!p.prescribedExercises || p.prescribedExercises.length === 0) return sum;
     const logs = p.prescribedExercises.flatMap(e => e.adherenceLog);
     const completed = logs.filter(l => l.completed).length;
     return sum + (logs.length ? completed / logs.length : 0);
   }, 0);
-  const avgAdherence = relevantPatients.length ? (totalAdherence / relevantPatients.length) * 100 : 0;
+  
+  // Only count patients that actually have prescribed exercises for average adherence
+  const patientsWithExercises = relevantPatients.filter(p => p.prescribedExercises && p.prescribedExercises.length > 0).length;
+  const avgAdherence = patientsWithExercises ? (totalAdherence / patientsWithExercises) * 100 : 0;
 
   const ranges = ['0-20', '20-40', '40-60', '60-80', '80-100'];
   const scoreDistribution = ranges.map(range => {
@@ -89,5 +151,5 @@ export async function getCohorteStats(mobility?: string, strokeType?: string): P
     return { range, count: scores.filter(s => s >= min && s < (max === 100 ? 101 : max)).length };
   });
 
-  return delay({ avgGlobalScore: Math.round(avgGlobalScore * 10) / 10, flagPercentages, avgAdherence: Math.round(avgAdherence * 10) / 10, scoreDistribution });
+  return Promise.resolve({ avgGlobalScore: Math.round(avgGlobalScore * 10) / 10, flagPercentages, avgAdherence: Math.round(avgAdherence * 10) / 10, scoreDistribution });
 }

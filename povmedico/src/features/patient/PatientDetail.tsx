@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useStore } from '../../store/useStore';
 import type { Patient, ScaleMetricResult, Session } from '../../data/types';
 import { getPatient, getSessions } from '../../data/api';
 import { Card } from '../../components/Card';
@@ -14,7 +13,6 @@ import { differenceInDays } from 'date-fns';
 
 export function PatientDetail() {
   const { id } = useParams<{ id: string }>();
-  const { activeRole } = useStore();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -209,14 +207,12 @@ export function PatientDetail() {
       {/* Cohort comparison */}
       <PatientCohortComparison />
 
-      {/* RBAC gating: therapists don't see predictions link */}
-      {activeRole === 'physician' && (
-        <div className="mt-6 flex gap-3 stagger-children">
-          <ActionButton to={`/patient/${patient.id}/predictions`} color="accent" label="Ver predicciones" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>} />
-          <ActionButton to={`/patient/${patient.id}/rehab`} color="dom-proximal" label="Correlación de rehabilitación" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 12h-4l-3 9-4-18-3 9H2"/></svg>} />
-          <ActionButton to={`/patient/${patient.id}/report`} color="dom-pronosup" label="Generar informe" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>} />
-        </div>
-      )}
+      {/* Action buttons */}
+      <div className="mt-6 flex gap-3 stagger-children">
+        <ActionButton to={`/patient/${patient.id}/predictions`} color="accent" label="Ver predicciones" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>} />
+        <ActionButton to={`/patient/${patient.id}/rehab`} color="dom-proximal" label="Correlación de rehabilitación" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 12h-4l-3 9-4-18-3 9H2"/></svg>} />
+        <ActionButton to={`/patient/${patient.id}/report`} color="dom-pronosup" label="Generar informe" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>} />
+      </div>
     </div>
   );
 }

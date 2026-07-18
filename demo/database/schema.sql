@@ -271,9 +271,9 @@ CREATE POLICY operators_select ON operators
 CREATE POLICY operators_insert ON operators
   FOR INSERT WITH CHECK (id = auth.uid());
 
--- Subjects: operator sees only their own
+-- Subjects: all authenticated operators can read all subjects
 CREATE POLICY subjects_select ON subjects
-  FOR SELECT USING (operator_id = auth.uid());
+  FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY subjects_insert ON subjects
   FOR INSERT WITH CHECK (operator_id = auth.uid());
 CREATE POLICY subjects_update ON subjects
@@ -281,17 +281,15 @@ CREATE POLICY subjects_update ON subjects
 CREATE POLICY subjects_delete ON subjects
   FOR DELETE USING (operator_id = auth.uid());
 
--- Sessions: operator sees only their own
+-- Sessions: all authenticated operators can read all sessions
 CREATE POLICY sessions_select ON sessions
-  FOR SELECT USING (operator_id = auth.uid());
+  FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY sessions_insert ON sessions
   FOR INSERT WITH CHECK (operator_id = auth.uid());
 
--- Game results: visible if session belongs to operator
+-- Game results: all authenticated operators can read all game results
 CREATE POLICY game_results_select ON game_results
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM sessions s WHERE s.id = session_id AND s.operator_id = auth.uid())
-  );
+  FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY game_results_insert ON game_results
   FOR INSERT WITH CHECK (
     EXISTS (SELECT 1 FROM sessions s WHERE s.id = session_id AND s.operator_id = auth.uid())

@@ -23,10 +23,14 @@ export async function createSubject({ displayName, birthYear, sex, dominantHand,
 }
 
 export async function listSubjects() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from('subjects')
     .select('*')
     .eq('is_active', true)
+    .eq('operator_id', user.id)
     .order('created_at', { ascending: false });
 
   if (error) return [];

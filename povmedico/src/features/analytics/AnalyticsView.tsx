@@ -113,9 +113,9 @@ export function AnalyticsView() {
         <h2 className="text-[15px] font-semibold text-txt mb-4">Prevalencia de alertas clínicas</h2>
         <div className="grid grid-cols-4 gap-4">
           <FlagStat label="Temblor" value={stats.flagPercentages.tremor} />
-          <FlagStat label="Espasticidad" value={stats.flagPercentages.spasticity} />
+          <FlagStat label="Fragmentación" value={stats.flagPercentages.spasticity} />
           <FlagStat label="Fatiga" value={stats.flagPercentages.fatigue} />
-          <FlagStat label="Impulso" value={stats.flagPercentages.impulse} />
+          <FlagStat label="Precisión" value={stats.flagPercentages.impulse} />
         </div>
       </Card>
 

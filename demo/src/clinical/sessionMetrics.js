@@ -335,9 +335,17 @@ export class BiomarkerAccumulator {
 
   finalize() {
     const durationMs = Math.max(1, Date.now() - this.start);
-    const tremorAmp = mean(this.tremor);
+    const tremorAmpRaw = mean(this.tremor);
     const smoothness = mean(this.smooth);
     const rotJerk = mean(this.rotSmooth);
+
+    // Pathological tremor score: only count amplitude at clinical frequencies (3-6Hz).
+    // If average freq is outside pathological band, attenuate heavily.
+    const avgFreq = this.tremorFreqs.length > 0
+      ? this.tremorFreqs.reduce((a, b) => a + b, 0) / this.tremorFreqs.length
+      : 0;
+    const freqWeight = (avgFreq >= 3 && avgFreq <= 6) ? 1.0 : 0.15;
+    const tremorAmp = tremorAmpRaw * freqWeight;
 
     const openP90 = percentile(this.handOpen, 90);
     const openP10 = percentile(this.handOpen, 10);

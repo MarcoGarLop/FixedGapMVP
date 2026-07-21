@@ -1,4 +1,4 @@
-import type { Patient, Session, GameResult, PrescribedExercise, EventMarker, GameId } from './types';
+import type { Patient, Session, GameResult, PrescribedExercise, EventMarker, GameId, EnrichedColumns } from './types';
 import { computeDerivedClinical } from '../domain/scores';
 
 // Maps a row from the `subjects` table in Supabase to the `Patient` interface
@@ -36,13 +36,34 @@ export function mapSupabaseSession(sessionRow: any, gameResultRows: any[]): Sess
     if (gr.game_key === 'interruptores') gameId = 'flappy';
     if (gr.game_key === 'jarra') gameId = 'water';
 
+    const enriched: EnrichedColumns = {
+      sparcMean: gr.sparc_mean ?? null,
+      sparcCv: gr.sparc_cv ?? null,
+      sparcWorst: gr.sparc_worst ?? null,
+      bveValue: gr.bve_value ?? null,
+      endpointAccuracy: gr.endpoint_accuracy ?? null,
+      fingerIndividuationMean: gr.finger_individuation_mean ?? null,
+      fingersExtendedMax: gr.fingers_extended_max ?? null,
+      handOpeningSpeedP75: gr.hand_opening_speed_p75 ?? null,
+      pinchDistanceMeanMm: gr.pinch_distance_mean_mm ?? null,
+      palmSpeedP75: gr.palm_speed_p75 ?? null,
+      peakVelocityCv: gr.peak_velocity_cv ?? null,
+      durationCv: gr.duration_cv ?? null,
+      repCount: gr.rep_count ?? null,
+      fatigueIndex: gr.fatigue_index ?? null,
+      tremorFreqHz: gr.tremor_freq_hz ?? null,
+      tremorBand: gr.tremor_band ?? null,
+      reactionTimeMeanMs: gr.reaction_time_mean_ms ?? null,
+      qualityFramesPct: gr.quality_frames_pct ?? null,
+      meanDurationMs: gr.mean_duration_ms ?? null,
+    };
+
     return {
       game: gameId,
       durationMs: gr.duration_ms || 0,
       metrics: gr.metrics_display || {},
-      // In Supabase we don't store the 300 telemetry frames to save space in game_results, 
-      // they are usually discarded after the game unless recorded elsewhere.
-      frames: [] 
+      enriched,
+      frames: [],
     };
   });
 

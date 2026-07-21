@@ -135,11 +135,11 @@ function ScaleMetricSummary({ metrics }: { metrics: ScaleMetricResult[] }) {
 function SlingshotSummary({ metrics }: { metrics: SlingshotMetrics }) {
   return (
     <>
-      <MetricRow label="Precisión de pinza M1" value={(metrics.accuracyRatio * 100).toFixed(0)} unit="%" />
+      <MetricRow label="Precisión de pinza (M1)" value={(metrics.accuracyRatio * 100).toFixed(0)} unit="%" />
       <MetricRow label="Apertura pulgar-índice" value={metrics.maxPinchOpen.toFixed(2)} />
-      <MetricRow label="reach_precision" value={(metrics.accuracyRatio * 100).toFixed(0)} unit="%" />
-      <MetricRow label="tremor_index" value={metrics.pullTremor.toFixed(2)} />
-      <MetricRow label="Lanzamientos" value={metrics.totalShots} />
+      <MetricRow label="Velocidad de alcance" value={metrics.maxPullDistance.toFixed(0)} unit="px/s" />
+      <MetricRow label="Índice de temblor" value={metrics.pullTremor.toFixed(2)} />
+      <MetricRow label="Repeticiones" value={metrics.totalShots} />
     </>
   );
 }
@@ -147,11 +147,11 @@ function SlingshotSummary({ metrics }: { metrics: SlingshotMetrics }) {
 function FlappySummary({ metrics }: { metrics: FlappyMetrics }) {
   return (
     <>
-      <MetricRow label="Flexión máxima" value={metrics.maxFlexion.toFixed(2)} />
-      <MetricRow label="index_extension_acc" value={(metrics.maxExtension * 100).toFixed(0)} unit="%" />
-      <MetricRow label="Apertura de mano M2" value={metrics.activationCount} />
-      <MetricRow label="Fatiga" value={metrics.fatigueIndex.toFixed(1)} unit="%" />
-      <MetricRow label="Suavidad M11 (SPARC)" value={metrics.smoothnessJerk.toFixed(2)} />
+      <MetricRow label="Extensión del índice" value={(metrics.maxExtension * 100).toFixed(0)} unit="%" />
+      <MetricRow label="Flexión máxima" value={(metrics.maxFlexion * 100).toFixed(0)} unit="%" />
+      <MetricRow label="Activaciones de apertura" value={metrics.activationCount} />
+      <MetricRow label="Fatiga motora" value={metrics.fatigueIndex.toFixed(1)} unit="%" />
+      <MetricRow label="Fragmentación (jerk)" value={metrics.smoothnessJerk.toFixed(2)} />
     </>
   );
 }
@@ -159,11 +159,11 @@ function FlappySummary({ metrics }: { metrics: FlappyMetrics }) {
 function WaterSummary({ metrics }: { metrics: WaterMetrics }) {
   return (
     <>
-      <MetricRow label="Supinación" value={metrics.maxSupination.toFixed(0)} unit="°" />
-      <MetricRow label="Pronación" value={metrics.maxPronation.toFixed(0)} unit="°" />
-      <MetricRow label="Rango de rotación M4" value={(((metrics.maxSupination + metrics.maxPronation) / 180) * 100).toFixed(0)} unit="/100" />
-      <MetricRow label="pronosup_speed" value={(metrics.averagePouringTime / 1000).toFixed(1)} unit="s" />
-      <MetricRow label="grip_cylindrical" value={metrics.waterAccuracy.toFixed(0)} unit="%" />
+      <MetricRow label="Supinación (est.)" value={metrics.maxSupination.toFixed(0)} unit="°" />
+      <MetricRow label="Pronación (est.)" value={metrics.maxPronation.toFixed(0)} unit="°" />
+      <MetricRow label="Rango de rotación (M4)" value={(((metrics.maxSupination + metrics.maxPronation) / 180) * 100).toFixed(0)} unit="/100" />
+      <MetricRow label="Tiempo medio vertido" value={(metrics.averagePouringTime / 1000).toFixed(1)} unit="s" />
+      <MetricRow label="Precisión de vertido" value={metrics.waterAccuracy.toFixed(0)} unit="%" />
     </>
   );
 }

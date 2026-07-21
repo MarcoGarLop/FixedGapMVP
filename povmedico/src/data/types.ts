@@ -46,21 +46,52 @@ export interface TelemetryFrame {
   birdsLeft?: number;
 }
 
+export interface EnrichedColumns {
+  sparcMean: number | null;
+  sparcCv: number | null;
+  sparcWorst: number | null;
+  bveValue: number | null;
+  endpointAccuracy: number | null;
+  fingerIndividuationMean: number | null;
+  fingersExtendedMax: number | null;
+  handOpeningSpeedP75: number | null;
+  pinchDistanceMeanMm: number | null;
+  palmSpeedP75: number | null;
+  peakVelocityCv: number | null;
+  durationCv: number | null;
+  repCount: number | null;
+  fatigueIndex: number | null;
+  tremorFreqHz: number | null;
+  tremorBand: 'none' | 'physiological' | 'pathological' | null;
+  reactionTimeMeanMs: number | null;
+  qualityFramesPct: number | null;
+  meanDurationMs: number | null;
+}
+
 export interface GameResult {
   game: GameId;
   durationMs: number;
   metrics: SlingshotMetrics | FlappyMetrics | WaterMetrics;
+  enriched?: EnrichedColumns;
   frames?: TelemetryFrame[];
 }
+
+export type TremorLevel = 'none' | 'physiological' | 'pathological';
+export type VariabilityLevel = 'very-consistent' | 'consistent' | 'variable' | 'very-variable';
 
 export interface DerivedClinical {
   tremorFlag: boolean;
   spasticityFlag: boolean;
   fatigueFlag: boolean;
   impulseControlFlag: boolean;
+  tremorLevel: TremorLevel;
+  variabilityLevel: VariabilityLevel;
   proximalGripScore: number;
+  proximalComponents: { accuracy: number; pinch: number; velocity: number; tremor: number };
   distalFlexExtScore: number;
+  distalComponents: { flexion: number; extension: number; activation: number; fatigue: number; smoothness: number };
   pronoSupScore: number;
+  pronoSupComponents: { supination: number; pronation: number; accuracy: number; errors: number; smoothness: number; speed: number };
   globalMotorScore: number;
   scaleMetrics: ScaleMetricResult[];
 }

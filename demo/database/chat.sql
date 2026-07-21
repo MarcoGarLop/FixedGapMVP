@@ -24,6 +24,7 @@ CREATE TABLE conversation_participants (
   conversation_id uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   operator_id     uuid NOT NULL REFERENCES operators(id) ON DELETE CASCADE,
   joined_at       timestamptz NOT NULL DEFAULT now(),
+  hidden          boolean NOT NULL DEFAULT false,
   PRIMARY KEY (conversation_id, operator_id)
 );
 
@@ -66,18 +67,17 @@ CREATE POLICY conversations_update ON conversations
     EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id = id AND cp.operator_id = auth.uid())
   );
 
--- Participants: Can view all participants of the conversations they belong to
+-- Participants: Any authenticated user can view participants
 CREATE POLICY participants_select ON conversation_participants
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id = conversation_id AND cp.operator_id = auth.uid())
-  );
+  FOR SELECT USING (auth.role() = 'authenticated');
 
--- Participants: Anyone can add themselves, or add others if they are already a participant
+-- Participants: Any authenticated user can add participants
 CREATE POLICY participants_insert ON conversation_participants
-  FOR INSERT WITH CHECK (
-    operator_id = auth.uid() OR 
-    EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id = conversation_id AND cp.operator_id = auth.uid())
-  );
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Participants: Users can update their own row (e.g., hide/unhide)
+CREATE POLICY participants_update ON conversation_participants
+  FOR UPDATE USING (operator_id = auth.uid());
 
 -- Messages: Can view if the operator is a participant in the conversation
 CREATE POLICY messages_select ON messages
@@ -100,12 +100,34 @@ CREATE TRIGGER conversations_updated_at
   BEFORE UPDATE ON conversations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+-- On new message: unhide only for sender + update conversation timestamp
+CREATE OR REPLACE FUNCTION on_new_message()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE conversation_participants
+  SET hidden = false
+  WHERE conversation_id = NEW.conversation_id
+    AND operator_id = NEW.sender_id;
+
+  UPDATE conversations
+  SET updated_at = now()
+  WHERE id = NEW.conversation_id;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_new_message_trigger
+  AFTER INSERT ON messages
+  FOR EACH ROW EXECUTE FUNCTION on_new_message();
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- REALTIME SETUP
 -- ─────────────────────────────────────────────────────────────────────────────
--- Enable realtime for the messages table (and others if needed)
--- Note: Supabase UI might require you to enable realtime manually for the table, 
--- but this SQL ensures the publication is set if 'supabase_realtime' exists.
 begin;
   drop publication if exists supabase_realtime;
   create publication supabase_realtime;

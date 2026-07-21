@@ -179,10 +179,10 @@ export function CohortView() {
                           <div className="flex gap-1">
                             {lastSession && (
                               <>
-                                <FlagChip active={lastSession.derived.tremorFlag} label="T" tooltip="Temblor" variant="tremor" />
-                                <FlagChip active={lastSession.derived.spasticityFlag} label="S" tooltip="Espasticidad" variant="spasticity" />
-                                <FlagChip active={lastSession.derived.fatigueFlag} label="F" tooltip="Fatiga" variant="fatigue" />
-                                <FlagChip active={lastSession.derived.impulseControlFlag} label="D" tooltip="Desinhibición" variant="impulse" />
+                                <FlagChip active={lastSession.derived.tremorFlag} label="T" tooltip="Temblor patológico" variant="tremor" />
+                                <FlagChip active={lastSession.derived.spasticityFlag} label="F" tooltip="Fragmentación" variant="spasticity" />
+                                <FlagChip active={lastSession.derived.fatigueFlag} label="Ft" tooltip="Fatiga motora" variant="fatigue" />
+                                <FlagChip active={lastSession.derived.impulseControlFlag} label="P" tooltip="Precisión reducida" variant="impulse" />
                               </>
                             )}
                           </div>
@@ -294,10 +294,10 @@ function PatientCard({ patient: p, sessions, expanded, onToggle, onNavigate, var
 
             {/* Clinical flags detail */}
             <div className="flex flex-wrap gap-1.5">
-              <FlagChip active={lastSession.derived.tremorFlag} label="Temblor" tooltip="Inestabilidad — temblor cerebeloso" variant="tremor" />
-              <FlagChip active={lastSession.derived.spasticityFlag} label="Espasticidad" tooltip="Rigidez en flexoextensión" variant="spasticity" />
-              <FlagChip active={lastSession.derived.fatigueFlag} label="Fatiga" tooltip="Caída >15% — fatiga neuromuscular" variant="fatigue" />
-              <FlagChip active={lastSession.derived.impulseControlFlag} label="Desinhibición" tooltip="Movimientos involuntarios en rotación" variant="impulse" />
+              <FlagChip active={lastSession.derived.tremorFlag} label="Temblor" tooltip="Oscilación en banda patológica (3-6 Hz)" variant="tremor" />
+              <FlagChip active={lastSession.derived.spasticityFlag} label="Fragmentación" tooltip="Movimiento interrumpido — posible espasticidad o co-contracción" variant="spasticity" />
+              <FlagChip active={lastSession.derived.fatigueFlag} label="Fatiga" tooltip="Caída >20% de velocidad pico entre primeras y últimas repeticiones" variant="fatigue" />
+              <FlagChip active={lastSession.derived.impulseControlFlag} label="Precisión" tooltip="Errores frecuentes en tarea de vertido" variant="impulse" />
             </div>
 
             <ClinicalEvidenceList session={lastSession} />

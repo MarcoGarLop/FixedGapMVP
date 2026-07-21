@@ -70,7 +70,7 @@ export function PatientDetail() {
           <div className="flex items-center gap-4">
             {lastSession && (
               <div className="text-center">
-                <div className="text-[10px] text-txt-muted uppercase tracking-wider font-medium mb-2">Motor global</div>
+                <div className="text-[10px] text-txt-muted uppercase tracking-wider font-medium mb-2">Índice motor FixedGap</div>
                 <ScoreBadge score={lastSession.derived.globalMotorScore} size="lg" />
                 <div className="flex gap-3 mt-2 text-[11px] tabular-nums">
                   <span className={`flex items-center gap-1 ${deltaVsBaseline >= 0 ? 'text-ok' : 'text-alert'}`}>
@@ -95,54 +95,82 @@ export function PatientDetail() {
       {/* Clinical Indicators */}
       {lastSession && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 stagger-children">
+          <TremorIndicator level={lastSession.derived.tremorLevel} />
           <IndicatorCard
-            label="Temblor / Ataxia"
-            active={lastSession.derived.tremorFlag}
-            tooltip="Inestabilidad durante el agarre o la rotación activos. Signo de temblor cerebeloso o disfunción extrapiramidal post-ictus."
-            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>}
-          />
-          <IndicatorCard
-            label="Espasticidad"
+            label="Movimiento fragmentado"
             active={lastSession.derived.spasticityFlag}
-            tooltip="Rigidez en flexoextensión. Movimiento fragmentado compatible con espasticidad — secuela limitante difícil de cuantificar fuera de consulta."
+            tooltip="Movimiento con interrupciones frecuentes (jerk elevado). Puede indicar espasticidad, co-contracción u otra limitación del control motor. Requiere valoración clínica."
             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>}
           />
           <IndicatorCard
-            label="Fatiga neuromuscular"
+            label="Fatiga motora"
             active={lastSession.derived.fatigueFlag}
-            tooltip="Caída >15% de la fuerza máxima entre el inicio y el final de la sesión. Fatiga neuromuscular central — dato no observable en consulta."
+            tooltip="Caída >20% en velocidad pico entre las primeras y últimas repeticiones de la sesión. Sugiere fatiga neuromuscular central."
             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 12h-4l-3 9-4-18-3 9H2"/></svg>}
           />
           <IndicatorCard
-            label="Desinhibición motora"
+            label="Control de precisión reducido"
             active={lastSession.derived.impulseControlFlag}
-            tooltip="Movimientos involuntarios o excesivos durante la rotación. Dificultad para inhibir el movimiento — desinhibición motora o falta de control fino."
+            tooltip="Errores frecuentes en la tarea de vertido (derramamiento). Puede reflejar déficit de control fino, falta de práctica o dificultad inhibitoria."
             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>}
           />
         </div>
       )}
 
-      {/* Domain Scores */}
+      {/* Variability & Qualitative indicators */}
+      {lastSession && (
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <VariabilityBadge level={lastSession.derived.variabilityLevel} />
+          <PouringTimeBadge games={lastSession.games} />
+        </div>
+      )}
+
+      {/* Domain Scores with breakdown */}
       {lastSession && (
         <div className="grid grid-cols-3 gap-3 mb-6 stagger-children">
-          <DomainCard
+          <DomainCardWithBreakdown
             color="#D4695C"
             label="Precisión de pinza"
             game="Organizar pastillas · M1"
             score={lastSession.derived.proximalGripScore}
+            components={[
+              { label: 'Precisión', value: lastSession.derived.proximalComponents.accuracy },
+              { label: 'Apertura', value: lastSession.derived.proximalComponents.pinch },
+              { label: 'Velocidad', value: lastSession.derived.proximalComponents.velocity },
+              { label: 'Estabilidad', value: lastSession.derived.proximalComponents.tremor },
+            ]}
           />
-          <DomainCard
+          <DomainCardWithBreakdown
             color="#3D9B8F"
             label="Extensión del índice"
-            game="Apagar lámpara · index_extension_acc"
+            game="Apagar lámpara"
             score={lastSession.derived.distalFlexExtScore}
+            components={[
+              { label: 'Extensión', value: lastSession.derived.distalComponents.extension },
+              { label: 'Flexión', value: lastSession.derived.distalComponents.flexion },
+              { label: 'Activaciones', value: lastSession.derived.distalComponents.activation },
+              { label: 'Suavidad', value: lastSession.derived.distalComponents.smoothness },
+            ]}
           />
-          <DomainCard
+          <DomainCardWithBreakdown
             color="#5B8EC4"
             label="Rango de rotación"
             game="Girar jarra · M4"
             score={lastSession.derived.pronoSupScore}
+            components={[
+              { label: 'Supinación', value: lastSession.derived.pronoSupComponents.supination },
+              { label: 'Pronación', value: lastSession.derived.pronoSupComponents.pronation },
+              { label: 'Precisión', value: lastSession.derived.pronoSupComponents.accuracy },
+              { label: 'Velocidad', value: lastSession.derived.pronoSupComponents.speed },
+            ]}
           />
+        </div>
+      )}
+
+      {/* Global score disclaimer */}
+      {lastSession && (
+        <div className="text-[10px] text-txt-muted text-center mb-4 italic">
+          Índice motor FixedGap: compuesto interno para seguimiento longitudinal. No equivale a una escala clínica validada (FMA-UE, ARAT).
         </div>
       )}
 
@@ -187,10 +215,10 @@ export function PatientDetail() {
                   <td className="py-2.5 px-2 tabular-nums text-[13px]">{s.derived.pronoSupScore.toFixed(1)}</td>
                   <td className="py-2.5 px-2">
                     <div className="flex gap-1">
-                      <FlagChip active={s.derived.tremorFlag} label="T" tooltip="Temblor" variant="tremor" />
-                      <FlagChip active={s.derived.spasticityFlag} label="S" tooltip="Espasticidad" variant="spasticity" />
-                      <FlagChip active={s.derived.fatigueFlag} label="F" tooltip="Fatiga" variant="fatigue" />
-                      <FlagChip active={s.derived.impulseControlFlag} label="I" tooltip="Impulso" variant="impulse" />
+                      <FlagChip active={s.derived.tremorFlag} label="T" tooltip="Temblor patológico" variant="tremor" />
+                      <FlagChip active={s.derived.spasticityFlag} label="F" tooltip="Fragmentación" variant="spasticity" />
+                      <FlagChip active={s.derived.fatigueFlag} label="Ft" tooltip="Fatiga motora" variant="fatigue" />
+                      <FlagChip active={s.derived.impulseControlFlag} label="P" tooltip="Precisión reducida" variant="impulse" />
                     </div>
                   </td>
                 </tr>
@@ -254,21 +282,114 @@ function IndicatorCard({ label, active, tooltip, icon }: { label: string; active
   );
 }
 
-function DomainCard({ color, label, game, score }: { color: string; label: string; game: string; score: number }) {
+function TremorIndicator({ level }: { level: import('../../data/types').TremorLevel }) {
+  const config = {
+    none: { label: 'No detectado', color: 'text-ok', bg: '!border-clay-border', dot: false },
+    physiological: { label: 'Fisiológico', color: 'text-ok', bg: '!border-clay-border', dot: false },
+    pathological: { label: 'En banda patológica (3-6 Hz)', color: 'text-alert', bg: '!border-alert/30 !bg-alert/5', dot: true },
+  }[level];
+  return (
+    <Card className={`border ${config.bg}`}>
+      <div className="flex items-center gap-3">
+        <div className={`p-2 rounded-md ${config.dot ? 'bg-alert/15 text-alert' : 'bg-clay-surface-elevated text-txt-muted'}`}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M2 12h4l3-9 4 18 3-9h6"/></svg>
+        </div>
+        <div>
+          <div className="text-[13px] font-medium text-txt">Temblor</div>
+          <div className={`text-[11px] font-semibold flex items-center gap-1.5 ${config.color}`}>
+            {config.dot && <span className="w-1.5 h-1.5 rounded-full bg-alert animate-pulse-dot" />}
+            {config.label}
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 text-[10px] text-txt-muted">
+        {level === 'none' && 'Sin oscilación significativa detectada durante la sesión.'}
+        {level === 'physiological' && 'Oscilación de baja frecuencia (<3 Hz) — variabilidad normal, no patológica.'}
+        {level === 'pathological' && 'Oscilación en banda 3-6 Hz con amplitud significativa. Requiere valoración clínica.'}
+      </div>
+    </Card>
+  );
+}
+
+function VariabilityBadge({ level }: { level: import('../../data/types').VariabilityLevel }) {
+  const config: Record<string, { label: string; color: string; description: string }> = {
+    'very-consistent': { label: 'Muy consistente', color: 'text-ok', description: 'Baja variabilidad entre repeticiones — control motor estable.' },
+    'consistent': { label: 'Consistente', color: 'text-ok', description: 'Variabilidad dentro de rango normal.' },
+    'variable': { label: 'Variable', color: 'text-warning', description: 'Variabilidad moderada — posible inconsistencia en el control motor.' },
+    'very-variable': { label: 'Muy variable', color: 'text-alert', description: 'Alta variabilidad entre repeticiones — control motor inconsistente.' },
+  };
+  const c = config[level];
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[10px] text-txt-muted uppercase tracking-wider font-medium">Consistencia motora</div>
+          <div className={`text-[14px] font-semibold mt-1 ${c.color}`}>{c.label}</div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-txt-muted"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-8"/></svg>
+      </div>
+      <div className="text-[10px] text-txt-muted mt-2">{c.description}</div>
+    </Card>
+  );
+}
+
+function PouringTimeBadge({ games }: { games: import('../../data/types').GameResult[] }) {
+  const waterGame = games.find(g => g.game === 'water');
+  if (!waterGame) return (
+    <Card>
+      <div className="text-[10px] text-txt-muted uppercase tracking-wider font-medium">Tiempo de vertido</div>
+      <div className="text-[13px] text-txt-secondary mt-2">Sin datos de jarra en esta sesión</div>
+    </Card>
+  );
+  const wm = waterGame.metrics as import('../../data/types').WaterMetrics;
+  const seconds = wm.averagePouringTime / 1000;
+  let label: string, color: string;
+  if (seconds < 2) { label = 'Rápido'; color = 'text-ok'; }
+  else if (seconds <= 4) { label = 'Normal'; color = 'text-txt'; }
+  else { label = 'Lento'; color = 'text-warning'; }
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[10px] text-txt-muted uppercase tracking-wider font-medium">Tiempo de vertido</div>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-xl font-bold tabular-nums text-txt">{seconds.toFixed(1)}s</span>
+            <span className={`text-[12px] font-semibold ${color}`}>{label}</span>
+          </div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-txt-muted"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div className="text-[10px] text-txt-muted mt-2">{'<2s rápido · 2-4s normal · >4s lento (proxy cualitativo)'}</div>
+    </Card>
+  );
+}
+
+function DomainCardWithBreakdown({ color, label, game, score, components }: { color: string; label: string; game: string; score: number; components: { label: string; value: number }[] }) {
   return (
     <Card className="relative overflow-hidden">
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" style={{ background: `linear-gradient(to bottom, ${color}, ${color}80)` }} />
       <div className="pl-3">
         <div className="text-[10px] text-txt-muted uppercase tracking-wider font-medium mb-1">{label}</div>
         <div className="text-2xl font-bold tabular-nums text-txt animate-countUp">{score.toFixed(1)}</div>
-        <div className="text-[11px] text-txt-secondary mt-0.5">{game}</div>
+        <div className="text-[11px] text-txt-secondary mt-0.5 mb-2">{game}</div>
+        <div className="space-y-1.5">
+          {components.map(c => (
+            <div key={c.label} className="flex items-center gap-2">
+              <span className="text-[9px] text-txt-muted w-16 shrink-0">{c.label}</span>
+              <div className="flex-1 h-1.5 rounded-full bg-clay-border/40 overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, c.value)}%`, backgroundColor: color }} />
+              </div>
+              <span className="text-[9px] text-txt-muted tabular-nums w-6 text-right">{c.value}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   );
 }
 
 function ScaleMetricsPanel({ metrics }: { metrics: ScaleMetricResult[] }) {
-  const coreMetrics = metrics.filter(metric => metric.priority === 'CORE').slice(0, 8);
+  const coreMetrics = metrics.filter(metric => metric.priority === 'CORE').slice(0, 12);
 
   return (
     <Card className="mb-6 animate-fadeInUp">
